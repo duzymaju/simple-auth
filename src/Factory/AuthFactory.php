@@ -10,6 +10,7 @@ use Lcobucci\JWT\Signer\Hmac;
 use Lcobucci\JWT\Signer\Rsa;
 use Lcobucci\JWT\ValidationData;
 use SimpleAuth\Middleware\AuthItemsMiddleware;
+use SimpleAuth\Middleware\AuthListMiddleware;
 use SimpleAuth\Middleware\AuthMiddleware;
 use SimpleAuth\Model\AuthItemInterface;
 use SimpleAuth\Provider\AuthHeaderProvider;
@@ -58,6 +59,18 @@ class AuthFactory
     public function getAuthMiddleware($publicKey)
     {
         return new AuthMiddleware(new Parser(), $this->getSigner(), new ValidationData(), $publicKey);
+    }
+
+    /**
+     * Get auth list middleware
+     *
+     * @param string[] $publicKeys public keys
+     *
+     * @return AuthListMiddleware
+     */
+    public function getAuthListMiddleware(array $publicKeys)
+    {
+        return new AuthListMiddleware(new Parser(), $this->getSigner(), new ValidationData(), $publicKeys);
     }
 
     /**

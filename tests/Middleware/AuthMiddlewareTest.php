@@ -6,7 +6,7 @@ use Lcobucci\JWT\Token;
 use Lcobucci\JWT\ValidationData;
 use PHPUnit\Framework\TestCase;
 use SimpleAuth\Middleware\AuthMiddleware;
-use SimpleAuth\Model\Jwt;
+use SimpleAuth\Model\UserAccess;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
 use SimpleStructure\Tool\ParamPack;
@@ -53,18 +53,18 @@ final class AuthMiddlewareTest extends TestCase
      * @param string      $token   token
      * @param string|null $message message
      *
-     * @testWith ["getJwtIfExists", null]
-     *           ["getJwtIfExists", ""]
-     *           ["getJwtIfExists", "a b c", "Authorization token incorrect."]
-     *           ["getJwtIfExists", "Bearer", "Authorization token incorrect."]
-     *           ["getJwtIfExists", "Bearer ", "Authorization token incorrect."]
-     *           ["getJwtIfExists", "Bearer jwt abc", "Authorization token incorrect."]
-     *           ["getJwtOrNoAccess", null, "No authorization token."]
-     *           ["getJwtOrNoAccess", "", "No authorization token."]
-     *           ["getJwtOrNoAccess", "a b c", "Authorization token incorrect."]
-     *           ["getJwtOrNoAccess", "Bearer", "Authorization token incorrect."]
-     *           ["getJwtOrNoAccess", "Bearer ", "Authorization token incorrect."]
-     *           ["getJwtOrNoAccess", "Bearer jwt abc", "Authorization token incorrect."]
+     * @testWith ["getUserAccessIfExists", null]
+     *           ["getUserAccessIfExists", ""]
+     *           ["getUserAccessIfExists", "a b c", "Authorization token incorrect."]
+     *           ["getUserAccessIfExists", "Bearer", "Authorization token incorrect."]
+     *           ["getUserAccessIfExists", "Bearer ", "Authorization token incorrect."]
+     *           ["getUserAccessIfExists", "Bearer jwt abc", "Authorization token incorrect."]
+     *           ["getUserOrNoAccess", null, "No authorization token."]
+     *           ["getUserOrNoAccess", "", "No authorization token."]
+     *           ["getUserOrNoAccess", "a b c", "Authorization token incorrect."]
+     *           ["getUserOrNoAccess", "Bearer", "Authorization token incorrect."]
+     *           ["getUserOrNoAccess", "Bearer ", "Authorization token incorrect."]
+     *           ["getUserOrNoAccess", "Bearer jwt abc", "Authorization token incorrect."]
      */
     public function testUnknownToken($method, $token, $message = null)
     {
@@ -90,8 +90,8 @@ final class AuthMiddlewareTest extends TestCase
      *
      * @param string $method method
      *
-     * @testWith ["getJwtIfExists"]
-     *           ["getJwtOrNoAccess"]
+     * @testWith ["getUserAccessIfExists"]
+     *           ["getUserOrNoAccess"]
      */
     public function testNotVerifiedToken($method)
     {
@@ -123,8 +123,8 @@ final class AuthMiddlewareTest extends TestCase
      *
      * @param string $method method
      *
-     * @testWith ["getJwtIfExists"]
-     *           ["getJwtOrNoAccess"]
+     * @testWith ["getUserAccessIfExists"]
+     *           ["getUserOrNoAccess"]
      */
     public function testInvalidToken($method)
     {
@@ -162,15 +162,15 @@ final class AuthMiddlewareTest extends TestCase
      * @param string        $method       method
      * @param string|null   $email        e-mail
      * @param string[]|null $capabilities capabilities
-     * @param string|null   $issuedAt     issued at
-     * @param string|null   $expiration   expiration
+     * @param int|null      $issuedAt     issued at
+     * @param int|null      $expiresAt    expires at
      *
-     * @testWith ["getJwtIfExists", null, null, null, null]
-     *           ["getJwtIfExists", "issuer@example.com", ["a", "b"], 1234567890, 1234567891]
-     *           ["getJwtOrNoAccess", null, null, null, null]
-     *           ["getJwtOrNoAccess", "issuer@example.com", ["a", "b"], 1234567890, 1234567891]
+     * @testWith ["getUserAccessIfExists", null, null, null, null]
+     *           ["getUserAccessIfExists", "issuer@example.com", ["a", "b"], 1234567890, 1234567891]
+     *           ["getUserOrNoAccess", null, null, null, null]
+     *           ["getUserOrNoAccess", "issuer@example.com", ["a", "b"], 1234567890, 1234567891]
      */
-    public function testReturningJwt($method, $email, $capabilities, $issuedAt, $expiration)
+    public function testReturningJwt($method, $email, $capabilities, $issuedAt, $expiresAt)
     {
         $this->headersMock
             ->method('getString')
@@ -195,26 +195,28 @@ final class AuthMiddlewareTest extends TestCase
             ->with($this->validationDataMock)
             ->willReturn(true)
         ;
+        $claims = [
+            'capabilities' => $capabilities,
+            'email' => $email,
+            'exp' => $expiresAt,
+            'iat' => $issuedAt,
+        ];
         $this->tokenMock
-            ->expects($this->exactly(4))
-            ->method('getClaim')
-            ->will($this->returnCallback(function ($param) use ($email, $capabilities, $issuedAt, $expiration) {
-                switch ($param) {
-                    case 'email': return $email;
-                    case 'capabilities': return $capabilities;
-                    case 'iat': return $issuedAt;
-                    case 'exp': return $expiration;
-                    default: return null;
-                }
-            }))
+            ->method('getClaims')
+            ->willReturn($claims)
         ;
-        /** @var Jwt $jwt */
-        $jwt = $middleware->$method($this->requestMock);
-        $this->assertEquals($email, $jwt->getEmail());
-        $this->assertEquals(isset($capabilities) ? $capabilities : [], $jwt->getCapabilities());
-        $jwtIssuedAt = $jwt->getIssuedAt();
-        $this->assertEquals($issuedAt, isset($jwtIssuedAt) ? $jwtIssuedAt->getTimestamp() : null);
-        $jwtExpiration = $jwt->getExpiration();
-        $this->assertEquals($expiration, isset($jwtExpiration) ? $jwtExpiration->getTimestamp() : null);
+        /** @var UserAccess $userAccess */
+        $userAccess = $middleware->$method($this->requestMock);
+        $this->assertEquals($email, $userAccess->getEmail());
+        $this->assertEquals(isset($capabilities) ? $capabilities : [], $userAccess->getCapabilities());
+        $accessIssuedAt = $userAccess->getIssuedAt();
+        $this->assertEquals($issuedAt, isset($accessIssuedAt) ? $accessIssuedAt->getTimestamp() : null);
+        $accessExpiresAt = $userAccess->getExpiresAt();
+        $this->assertEquals($expiresAt, isset($accessExpiresAt) ? $accessExpiresAt->getTimestamp() : null);
+        $this->assertEquals($claims, $userAccess->getJwtClaims());
+        $this->assertEquals($email, $userAccess->getJwtClaim('email'));
+        $this->assertEquals('abc', $userAccess->getJwtClaim('notExistedClaim', 'abc'));
+        $this->assertEquals(null, $userAccess->getJwtClaim('notExistedClaim'));
+
     }
 }

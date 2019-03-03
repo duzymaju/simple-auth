@@ -2,15 +2,13 @@
 
 namespace SimpleAuth\Middleware;
 
-use Exception;
 use Lcobucci\JWT\Parser;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\ValidationData;
-use SimpleAuth\Model\UserAccess;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
 
-class AuthMiddleware
+class AuthListMiddleware
 {
     /** @var Parser */
     private $parser;
@@ -21,8 +19,8 @@ class AuthMiddleware
     /** @var ValidationData */
     private $validationData;
 
-    /** @var string */
-    private $publicKey;
+    /** @var string[] */
+    private $publicKeys;
 
     /**
      * Construct
@@ -30,45 +28,26 @@ class AuthMiddleware
      * @param Parser         $parser         parser
      * @param Signer         $signer         signer
      * @param ValidationData $validationData validation data
-     * @param string         $publicKey      public key
+     * @param string[]       $publicKeys     public keys
      */
-    public function __construct(Parser $parser, Signer $signer, ValidationData $validationData, $publicKey)
+    public function __construct(Parser $parser, Signer $signer, ValidationData $validationData, array $publicKeys)
     {
         $this->parser = $parser;
         $this->signer = $signer;
         $this->validationData = $validationData;
-        $this->publicKey = $publicKey;
+        $this->publicKeys = $publicKeys;
     }
 
     /**
-     * Get user access if exists
+     * Get claims or no access
      *
      * @param Request $request request
      *
-     * @return UserAccess|null
+     * @return array
      *
      * @throws UnauthorizedException
      */
-    public function getUserAccessIfExists(Request $request)
-    {
-        if (empty($request->headers->getString('authorization'))) {
-            return null;
-        }
-
-        return $this->getUserOrNoAccess($request);
-    }
-
-    /**
-     * Get user or no access
-     *
-     * @param Request $request request
-     *
-     * @return UserAccess
-     *
-     * @throws Exception
-     * @throws UnauthorizedException
-     */
-    public function getUserOrNoAccess(Request $request)
+    public function getClaimsOrNoAccess(Request $request)
     {
         $header = $request->headers->getString('authorization');
         if (empty($header)) {
@@ -81,13 +60,12 @@ class AuthMiddleware
         }
 
         $token = $this->parser->parse($headerParts[1]);
-        if (!$token->verify($this->signer, $this->publicKey)) {
-            throw new UnauthorizedException('Authorization token not verified.');
-        }
-        if (!$token->validate($this->validationData)) {
-            throw new UnauthorizedException('Authorization token invalid.');
+        foreach ($this->publicKeys as $publicKey) {
+            if ($token->verify($this->signer, $publicKey) && $token->validate($this->validationData)) {
+                return $token->getClaims();
+            }
         }
 
-        return new UserAccess($token->getClaims());
+        throw new UnauthorizedException('Public key which could positively verify authorization token not found.');
     }
 }
