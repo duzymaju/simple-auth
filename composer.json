@@ -1,6 +1,6 @@
 {
     "name": "majpage/simple-auth",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Simple PHP auth system",
     "type": "library",
     "license": "MIT",
@@ -17,7 +17,7 @@
     },
     "require": {
         "php" : ">=5.6",
-        "majpage/simple-structure": "^0.1.2",
+        "majpage/simple-structure": "^0.2.0",
         "lcobucci/jwt": "^3.2"
     },
     "require-dev": {
