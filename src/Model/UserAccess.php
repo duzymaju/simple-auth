@@ -5,6 +5,7 @@ namespace SimpleAuth\Model;
 use DateTime;
 use DateTimeZone;
 use Exception;
+use SimpleStructure\Exception\UnauthorizedException;
 
 class UserAccess
 {
@@ -34,11 +35,13 @@ class UserAccess
     {
         $dateTimeZone = new DateTimeZone(date_default_timezone_get());
 
-        $this->email = is_string($jwtClaims['email']) ? $jwtClaims['email'] : null;
-        $this->capabilities = is_array($jwtClaims['capabilities']) ? $jwtClaims['capabilities'] : [];
-        $this->issuedAt = is_int($jwtClaims['iat']) && $jwtClaims['iat'] > 0 ?
+        $this->email = array_key_exists('email', $jwtClaims) && is_string($jwtClaims['email']) ?
+            $jwtClaims['email'] : null;
+        $this->capabilities = array_key_exists('capabilities', $jwtClaims) && is_array($jwtClaims['capabilities']) ?
+            $jwtClaims['capabilities'] : [];
+        $this->issuedAt = array_key_exists('iat', $jwtClaims) && is_int($jwtClaims['iat']) && $jwtClaims['iat'] > 0 ?
             new DateTime('@' . $jwtClaims['iat'], $dateTimeZone) : null;
-        $this->expiresAt = is_int($jwtClaims['exp']) && $jwtClaims['exp'] > 0 ?
+        $this->expiresAt = array_key_exists('exp', $jwtClaims) && is_int($jwtClaims['exp']) && $jwtClaims['exp'] > 0 ?
             new DateTime('@' . $jwtClaims['exp'], $dateTimeZone) : null;
         $this->jwtClaims = $jwtClaims;
     }
@@ -71,6 +74,38 @@ class UserAccess
     public function getCapabilities()
     {
         return $this->capabilities;
+    }
+
+    /**
+     * Has capabilities
+     *
+     * @param string ...$requiredCapabilities required capabilities
+     *
+     * @return bool
+     */
+    public function hasCapabilities(...$requiredCapabilities)
+    {
+        $difference = array_diff($requiredCapabilities, $this->getCapabilities());
+
+        return count($difference) === 0;
+    }
+
+    /**
+     * Check capabilities or no access
+     *
+     * @param string ...$requiredCapabilities required capabilities
+     *
+     * @return self
+     *
+     * @throws UnauthorizedException
+     */
+    public function checkCapabilitiesOrNoAccess(...$requiredCapabilities)
+    {
+        if (!$this->hasCapabilities(...$requiredCapabilities)) {
+            throw new UnauthorizedException('User doesn\'t have required capabilities.');
+        }
+
+        return $this;
     }
 
     /**

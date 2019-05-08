@@ -217,6 +217,5 @@ final class AuthMiddlewareTest extends TestCase
         $this->assertEquals($email, $userAccess->getJwtClaim('email'));
         $this->assertEquals('abc', $userAccess->getJwtClaim('notExistedClaim', 'abc'));
         $this->assertEquals(null, $userAccess->getJwtClaim('notExistedClaim'));
-
     }
 }
