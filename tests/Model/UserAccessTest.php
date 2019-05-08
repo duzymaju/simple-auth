@@ -1,5 +1,6 @@
 <?php
 
+use Lcobucci\JWT\Claim;
 use PHPUnit\Framework\TestCase;
 use SimpleAuth\Model\UserAccess;
 use SimpleStructure\Exception\UnauthorizedException;
@@ -26,9 +27,7 @@ final class UserAccessTest extends TestCase
     public function testHavingCapabilities($capabilities, $requiredCapabilities, $result)
     {
         $userAccess = new UserAccess([
-            'iat' => 0,
-            'exp' => 0,
-            'capabilities' => $capabilities,
+            new TestClaim847('capabilities', $capabilities),
         ]);
         $this->assertEquals($result, $userAccess->hasCapabilities(...$requiredCapabilities));
     }
@@ -53,9 +52,7 @@ final class UserAccessTest extends TestCase
     public function testCheckingCapabilities($capabilities, $requiredCapabilities, $result)
     {
         $userAccess = new UserAccess([
-            'iat' => 0,
-            'exp' => 0,
-            'capabilities' => $capabilities,
+            new TestClaim847('capabilities', $capabilities),
         ]);
         try {
             $userAccess->checkCapabilitiesOrNoAccess(...$requiredCapabilities);
@@ -63,5 +60,37 @@ final class UserAccessTest extends TestCase
         } catch (UnauthorizedException $exception) {
             $this->assertEquals('User doesn\'t have required capabilities.', $exception->getMessage());
         }
+    }
+}
+
+class TestClaim847 implements Claim
+{
+    private $name;
+    private $value;
+
+    public function __construct($name, $value)
+    {
+        $this->name = $name;
+        $this->value = $value;
+    }
+
+    public function getName()
+    {
+        return $this->name;
+    }
+
+    public function getValue()
+    {
+        return $this->value;
+    }
+
+    public function __toString()
+    {
+        return (string) $this->value;
+    }
+
+    public function jsonSerialize()
+    {
+        return null;
     }
 }

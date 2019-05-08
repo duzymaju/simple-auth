@@ -5,45 +5,37 @@ namespace SimpleAuth\Model;
 use DateTime;
 use DateTimeZone;
 use Exception;
+use Lcobucci\JWT\Claim;
 use SimpleStructure\Exception\UnauthorizedException;
 
 class UserAccess
 {
-    /** @var string|null */
-    private $email;
+    /** @var string|false|null */
+    private $email = false;
 
-    /** @var string[] */
-    private $capabilities = [];
+    /** @var string[]|false */
+    private $capabilities = false;
 
-    /** @var DateTime|null */
-    private $issuedAt;
+    /** @var DateTime|false|null */
+    private $issuedAt = false;
 
-    /** @var DateTime|null */
-    private $expiresAt;
+    /** @var DateTime|false|null */
+    private $expiresAt = false;
 
     /** @var mixed[] */
-    private $jwtClaims;
+    private $jwtClaims = [];
 
     /**
      * Construct
      *
-     * @param mixed[] $jwtClaims JWT claims
-     *
-     * @throws Exception
+     * @param Claim[] $jwtClaims JWT claims
      */
     public function __construct(array $jwtClaims)
     {
-        $dateTimeZone = new DateTimeZone(date_default_timezone_get());
-
-        $this->email = array_key_exists('email', $jwtClaims) && is_string($jwtClaims['email']) ?
-            $jwtClaims['email'] : null;
-        $this->capabilities = array_key_exists('capabilities', $jwtClaims) && is_array($jwtClaims['capabilities']) ?
-            $jwtClaims['capabilities'] : [];
-        $this->issuedAt = array_key_exists('iat', $jwtClaims) && is_int($jwtClaims['iat']) && $jwtClaims['iat'] > 0 ?
-            new DateTime('@' . $jwtClaims['iat'], $dateTimeZone) : null;
-        $this->expiresAt = array_key_exists('exp', $jwtClaims) && is_int($jwtClaims['exp']) && $jwtClaims['exp'] > 0 ?
-            new DateTime('@' . $jwtClaims['exp'], $dateTimeZone) : null;
-        $this->jwtClaims = $jwtClaims;
+        /** @var Claim $claim */
+        foreach ($jwtClaims as $claim) {
+            $this->jwtClaims[$claim->getName()] = $claim->getValue();
+        }
     }
 
     /**
@@ -53,6 +45,11 @@ class UserAccess
      */
     public function getEmail()
     {
+        if ($this->email === false) {
+            $value = $this->getJwtClaim('email');
+            $this->email = is_string($value) ? $value : null;
+        }
+
         return $this->email;
     }
 
@@ -63,7 +60,9 @@ class UserAccess
      */
     public function getEmailHash()
     {
-        return isset($this->email) ? md5($this->email) : null;
+        $email = $this->getEmail();
+
+        return isset($email) ? md5($email) : null;
     }
 
     /**
@@ -73,6 +72,11 @@ class UserAccess
      */
     public function getCapabilities()
     {
+        if ($this->capabilities === false) {
+            $value = $this->getJwtClaim('capabilities');
+            $this->capabilities = is_array($value) ? $value : [];
+        }
+
         return $this->capabilities;
     }
 
@@ -112,9 +116,17 @@ class UserAccess
      * Get issued at
      *
      * @return DateTime|null
+     *
+     * @throws Exception
      */
     public function getIssuedAt()
     {
+        if ($this->issuedAt === false) {
+            $value = $this->getJwtClaim('iat');
+            $dateTimeZone = new DateTimeZone(date_default_timezone_get());
+            $this->issuedAt = is_int($value) && $value > 0 ? new DateTime('@' . $value, $dateTimeZone) : null;
+        }
+
         return $this->issuedAt;
     }
 
@@ -122,9 +134,17 @@ class UserAccess
      * Get expires at
      *
      * @return DateTime|null
+     *
+     * @throws Exception
      */
     public function getExpiresAt()
     {
+        if ($this->expiresAt === false) {
+            $value = $this->getJwtClaim('exp');
+            $dateTimeZone = new DateTimeZone(date_default_timezone_get());
+            $this->expiresAt = is_int($value) && $value > 0 ? new DateTime('@' . $value, $dateTimeZone) : null;
+        }
+
         return $this->expiresAt;
     }
 

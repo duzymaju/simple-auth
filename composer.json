@@ -1,6 +1,6 @@
 {
     "name": "majpage/simple-auth",
-    "version": "0.3.1",
+    "version": "0.3.2",
     "description": "Simple PHP auth system",
     "type": "library",
     "license": "MIT",

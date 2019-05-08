@@ -1,5 +1,6 @@
 <?php
 
+use Lcobucci\JWT\Claim;
 use Lcobucci\JWT\Parser;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Token;
@@ -161,8 +162,42 @@ final class AuthListMiddlewareTest extends TestCase
         ];
         $this->tokenMock
             ->method('getClaims')
-            ->willReturn($claims)
+            ->willReturn(array_map(function ($key, $value) {
+                return new TestClaim614($key, $value);
+            }, array_keys($claims), array_values($claims)))
         ;
         $this->assertEquals($claims, $middleware->getClaimsOrNoAccess($this->requestMock));
+    }
+}
+
+class TestClaim614 implements Claim
+{
+    private $name;
+    private $value;
+
+    public function __construct($name, $value)
+    {
+        $this->name = $name;
+        $this->value = $value;
+    }
+
+    public function getName()
+    {
+        return $this->name;
+    }
+
+    public function getValue()
+    {
+        return $this->value;
+    }
+
+    public function __toString()
+    {
+        return (string) $this->value;
+    }
+
+    public function jsonSerialize()
+    {
+        return null;
     }
 }

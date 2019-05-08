@@ -5,6 +5,7 @@ namespace SimpleAuth\Middleware;
 use Lcobucci\JWT\Parser;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\ValidationData;
+use SimpleAuth\Model\UserAccess;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
 
@@ -62,7 +63,8 @@ class AuthListMiddleware
         $token = $this->parser->parse($headerParts[1]);
         foreach ($this->publicKeys as $publicKey) {
             if ($token->verify($this->signer, $publicKey) && $token->validate($this->validationData)) {
-                return $token->getClaims();
+                $userAccess = new UserAccess($token->getClaims());
+                return $userAccess->getJwtClaims();
             }
         }
 

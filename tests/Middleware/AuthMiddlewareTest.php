@@ -1,5 +1,6 @@
 <?php
 
+use Lcobucci\JWT\Claim;
 use Lcobucci\JWT\Parser;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Token;
@@ -169,6 +170,8 @@ final class AuthMiddlewareTest extends TestCase
      *           ["getUserAccessIfExists", "issuer@example.com", ["a", "b"], 1234567890, 1234567891]
      *           ["getUserOrNoAccess", null, null, null, null]
      *           ["getUserOrNoAccess", "issuer@example.com", ["a", "b"], 1234567890, 1234567891]
+     *
+     * @throws Exception
      */
     public function testReturningJwt($method, $email, $capabilities, $issuedAt, $expiresAt)
     {
@@ -203,7 +206,9 @@ final class AuthMiddlewareTest extends TestCase
         ];
         $this->tokenMock
             ->method('getClaims')
-            ->willReturn($claims)
+            ->willReturn(array_map(function ($key, $value) {
+                return new TestClaim395($key, $value);
+            }, array_keys($claims), array_values($claims)))
         ;
         /** @var UserAccess $userAccess */
         $userAccess = $middleware->$method($this->requestMock);
@@ -217,5 +222,37 @@ final class AuthMiddlewareTest extends TestCase
         $this->assertEquals($email, $userAccess->getJwtClaim('email'));
         $this->assertEquals('abc', $userAccess->getJwtClaim('notExistedClaim', 'abc'));
         $this->assertEquals(null, $userAccess->getJwtClaim('notExistedClaim'));
+    }
+}
+
+class TestClaim395 implements Claim
+{
+    private $name;
+    private $value;
+
+    public function __construct($name, $value)
+    {
+        $this->name = $name;
+        $this->value = $value;
+    }
+
+    public function getName()
+    {
+        return $this->name;
+    }
+
+    public function getValue()
+    {
+        return $this->value;
+    }
+
+    public function __toString()
+    {
+        return (string) $this->value;
+    }
+
+    public function jsonSerialize()
+    {
+        return null;
     }
 }
