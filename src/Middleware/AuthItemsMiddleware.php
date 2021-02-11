@@ -9,17 +9,8 @@ use SimpleAuth\Model\AuthItemInterface;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
 
-class AuthItemsMiddleware
+class AuthItemsMiddleware extends AuthMiddlewareAbstract
 {
-    /** @var Parser */
-    private $parser;
-
-    /** @var Signer */
-    private $signer;
-
-    /** @var ValidationData */
-    private $validationData;
-
     /** @var AuthItemInterface[] */
     private $items;
 
@@ -33,9 +24,7 @@ class AuthItemsMiddleware
      */
     public function __construct(Parser $parser, Signer $signer, ValidationData $validationData, array $items)
     {
-        $this->parser = $parser;
-        $this->signer = $signer;
-        $this->validationData = $validationData;
+        parent::__construct($parser, $signer, $validationData);
         $this->items = $items;
     }
 
@@ -50,28 +39,16 @@ class AuthItemsMiddleware
      */
     public function getAuthItem(Request $request)
     {
-        $header = $request->headers->getString('authorization');
-        if (empty($header)) {
-            throw new UnauthorizedException('No authorization token.');
+        $token = $this->getToken($request);
+        if (!$token->hasClaim('iss')) {
+            throw new UnauthorizedException('Authorization token has no issuer defined.');
         }
-
-        $headerParts = explode(' ', $header);
-        if (count($headerParts) !== 2 || $headerParts[0] !== 'Bearer' || empty($headerParts[1])) {
-            throw new UnauthorizedException('Authorization token incorrect.');
-        }
-
-        $token = $this->parser->parse($headerParts[1]);
         $issuer = $token->getClaim('iss');
         foreach ($this->items as $item) {
             if ($item->getName() != $issuer) {
                 continue;
             }
-            if (!$token->verify($this->signer, $item->getKey())) {
-                throw new UnauthorizedException('Authorization token not verified.');
-            }
-            if (!$token->validate($this->validationData)) {
-                throw new UnauthorizedException('Authorization token invalid.');
-            }
+            $this->verifyAndValidate($token, $item->getKey());
             return $item;
         }
 

@@ -11,6 +11,9 @@ use SimpleStructure\Exception\UnauthorizedException;
 class UserAccess
 {
     /** @var string|false|null */
+    private $uuid = false;
+
+    /** @var string|false|null */
     private $email = false;
 
     /** @var string[]|false */
@@ -21,6 +24,9 @@ class UserAccess
 
     /** @var DateTime|false|null */
     private $expiresAt = false;
+
+    /** @var string|false|null */
+    private $audience = false;
 
     /** @var mixed[] */
     private $jwtClaims = [];
@@ -36,6 +42,21 @@ class UserAccess
         foreach ($jwtClaims as $claim) {
             $this->jwtClaims[$claim->getName()] = $claim->getValue();
         }
+    }
+
+    /**
+     * Get UUID
+     *
+     * @return string|null
+     */
+    public function getUuid()
+    {
+        if ($this->uuid === false) {
+            $value = $this->getJwtClaim('uuid');
+            $this->uuid = is_string($value) ? $value : null;
+        }
+
+        return $this->uuid;
     }
 
     /**
@@ -146,6 +167,22 @@ class UserAccess
         }
 
         return $this->expiresAt;
+    }
+
+    /**
+     * Get audience
+     *
+     * @return string|null
+     *
+     * @throws Exception
+     */
+    public function getAudience()
+    {
+        if ($this->audience === false) {
+            $this->audience = $this->getJwtClaim('aud');
+        }
+
+        return $this->audience;
     }
 
     /**

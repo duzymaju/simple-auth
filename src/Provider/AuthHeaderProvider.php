@@ -4,6 +4,7 @@ namespace SimpleAuth\Provider;
 
 use Lcobucci\JWT\Builder;
 use Lcobucci\JWT\Signer;
+use Lcobucci\JWT\Signer\Key;
 
 class AuthHeaderProvider
 {
@@ -13,11 +14,14 @@ class AuthHeaderProvider
     /** @var Signer */
     private $signer;
 
-    /** @var string */
+    /** @var Key */
     private $privateKey;
 
     /** @var int */
     private $expirationPeriod;
+
+    /** @var string|null */
+    private $audience;
 
     /**
      * Construct
@@ -30,12 +34,26 @@ class AuthHeaderProvider
      */
     public function __construct(Builder $builder, Signer $signer, $issuer, $privateKey, $expirationPeriod = 60)
     {
-        $builder->setIssuer($issuer);
+        $builder->issuedBy($issuer);
 
         $this->builder = $builder;
         $this->signer = $signer;
-        $this->privateKey = $privateKey;
+        $this->privateKey = new Key($privateKey);
         $this->expirationPeriod = $expirationPeriod;
+    }
+
+    /**
+     * Set audience
+     *
+     * @param string $audience audience
+     *
+     * @return self
+     */
+    public function setAudience($audience)
+    {
+        $this->audience = $audience;
+
+        return $this;
     }
 
     /**
@@ -47,13 +65,14 @@ class AuthHeaderProvider
     {
         $now = time();
         $this->builder
-            ->unsign()
-            ->setIssuedAt($now)
-            ->setExpiration($now + $this->expirationPeriod)
-            ->sign($this->signer, $this->privateKey)
+            ->issuedAt($now)
+            ->expiresAt($now + $this->expirationPeriod)
         ;
+        if (is_string($this->audience)) {
+            $this->builder->permittedFor($this->audience);
+        }
 
-        return (string) $this->builder->getToken();
+        return (string) $this->builder->getToken($this->signer, $this->privateKey);
     }
 
     /**

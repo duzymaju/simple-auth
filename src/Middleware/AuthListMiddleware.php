@@ -9,17 +9,8 @@ use SimpleAuth\Model\UserAccess;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
 
-class AuthListMiddleware
+class AuthListMiddleware extends AuthMiddlewareAbstract
 {
-    /** @var Parser */
-    private $parser;
-
-    /** @var Signer */
-    private $signer;
-
-    /** @var ValidationData */
-    private $validationData;
-
     /** @var string[] */
     private $publicKeys;
 
@@ -33,9 +24,7 @@ class AuthListMiddleware
      */
     public function __construct(Parser $parser, Signer $signer, ValidationData $validationData, array $publicKeys)
     {
-        $this->parser = $parser;
-        $this->signer = $signer;
-        $this->validationData = $validationData;
+        parent::__construct($parser, $signer, $validationData);
         $this->publicKeys = $publicKeys;
     }
 
@@ -50,19 +39,9 @@ class AuthListMiddleware
      */
     public function getClaimsOrNoAccess(Request $request)
     {
-        $header = $request->headers->getString('authorization');
-        if (empty($header)) {
-            throw new UnauthorizedException('No authorization token.');
-        }
-
-        $headerParts = explode(' ', $header);
-        if (count($headerParts) !== 2 || $headerParts[0] !== 'Bearer' || empty($headerParts[1])) {
-            throw new UnauthorizedException('Authorization token incorrect.');
-        }
-
-        $token = $this->parser->parse($headerParts[1]);
+        $token = $this->getToken($request);
         foreach ($this->publicKeys as $publicKey) {
-            if ($token->verify($this->signer, $publicKey) && $token->validate($this->validationData)) {
+            if ($this->isVerifiedAndValidated($token, $publicKey)) {
                 $userAccess = new UserAccess($token->getClaims());
                 return $userAccess->getJwtClaims();
             }

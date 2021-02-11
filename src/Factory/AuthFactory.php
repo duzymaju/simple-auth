@@ -46,43 +46,81 @@ class AuthFactory
      */
     public function getHeaderProvider($issuer, $privateKey, $expirationPeriod = 60)
     {
-        return new AuthHeaderProvider(new Builder(), $this->getSigner(), $issuer, $privateKey, $expirationPeriod);
+        $builder = $this->getBuilder();
+        $signer = $this->getSigner();
+
+        return new AuthHeaderProvider($builder, $signer, $issuer, $privateKey, $expirationPeriod);
     }
 
     /**
      * Get auth middleware
      *
-     * @param string $publicKey public key
+     * @param string      $publicKey public key
+     * @param string|null $audience  audience
      *
      * @return AuthMiddleware
      */
-    public function getAuthMiddleware($publicKey)
+    public function getAuthMiddleware($publicKey, $audience = null)
     {
-        return new AuthMiddleware(new Parser(), $this->getSigner(), new ValidationData(), $publicKey);
+        $parser = $this->getParser();
+        $signer = $this->getSigner();
+        $validationData = $this->getValidationData($audience);
+
+        return new AuthMiddleware($parser, $signer, $validationData, $publicKey);
     }
 
     /**
      * Get auth list middleware
      *
-     * @param string[] $publicKeys public keys
+     * @param string[]    $publicKeys public keys
+     * @param string|null $audience   audience
      *
      * @return AuthListMiddleware
      */
-    public function getAuthListMiddleware(array $publicKeys)
+    public function getAuthListMiddleware(array $publicKeys, $audience = null)
     {
-        return new AuthListMiddleware(new Parser(), $this->getSigner(), new ValidationData(), $publicKeys);
+        $parser = $this->getParser();
+        $signer = $this->getSigner();
+        $validationData = $this->getValidationData($audience);
+
+        return new AuthListMiddleware($parser, $signer, $validationData, $publicKeys);
     }
 
     /**
      * Get middleware
      *
-     * @param AuthItemInterface[] $items items
+     * @param AuthItemInterface[] $items    items
+     * @param string|null         $audience audience
      *
      * @return AuthItemsMiddleware
      */
-    public function getAuthItemsMiddleware(array $items)
+    public function getAuthItemsMiddleware(array $items, $audience = null)
     {
-        return new AuthItemsMiddleware(new Parser(), $this->getSigner(), new ValidationData(), $items);
+        $parser = $this->getParser();
+        $signer = $this->getSigner();
+        $validationData = $this->getValidationData($audience);
+
+        return new AuthItemsMiddleware($parser, $signer, $validationData, $items);
+    }
+
+    /**
+     * Get builder
+     *
+     * @return Builder
+     */
+    private function getBuilder()
+    {
+        return new Builder();
+    }
+
+    /**
+     * Get parser
+     *
+     * @return Parser
+     */
+    private function getParser()
+    {
+        return new Parser();
     }
 
     /**
@@ -133,5 +171,22 @@ class AuthFactory
                         return new Rsa\Sha256();
                 }
         }
+    }
+
+    /**
+     * Get validation data
+     *
+     * @param string|null $audience audience
+     *
+     * @return ValidationData
+     */
+    private function getValidationData($audience)
+    {
+        $validationData = new ValidationData();
+        if (is_string($audience)) {
+            $validationData->setAudience($audience);
+        }
+
+        return $validationData;
     }
 }
