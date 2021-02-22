@@ -2,29 +2,27 @@
 
 namespace SimpleAuth\Middleware;
 
-use Lcobucci\JWT\Parser;
-use Lcobucci\JWT\Signer;
-use Lcobucci\JWT\ValidationData;
-use SimpleAuth\Model\UserAccess;
+use SimpleAuth\Service\ConfigurationService;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
 
-class AuthListMiddleware extends AuthMiddlewareAbstract
+class AuthListMiddleware
 {
+    /** @var ConfigurationService */
+    private $config;
+
     /** @var string[] */
     private $publicKeys;
 
     /**
      * Construct
      *
-     * @param Parser         $parser         parser
-     * @param Signer         $signer         signer
-     * @param ValidationData $validationData validation data
-     * @param string[]       $publicKeys     public keys
+     * @param ConfigurationService $config     config
+     * @param string[]             $publicKeys public keys
      */
-    public function __construct(Parser $parser, Signer $signer, ValidationData $validationData, array $publicKeys)
+    public function __construct(ConfigurationService $config, array $publicKeys)
     {
-        parent::__construct($parser, $signer, $validationData);
+        $this->config = $config;
         $this->publicKeys = $publicKeys;
     }
 
@@ -39,11 +37,13 @@ class AuthListMiddleware extends AuthMiddlewareAbstract
      */
     public function getClaimsOrNoAccess(Request $request)
     {
-        $token = $this->getToken($request);
+        $token = $this->config->getToken($request);
         foreach ($this->publicKeys as $publicKey) {
-            if ($this->isVerifiedAndValidated($token, $publicKey)) {
-                $userAccess = new UserAccess($token->getClaims());
-                return $userAccess->getJwtClaims();
+            if ($this->config->isVerifiedAndValidated($token, $publicKey)) {
+                return $token
+                    ->claims()
+                    ->all()
+                ;
             }
         }
 

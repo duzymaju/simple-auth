@@ -1,13 +1,13 @@
 <?php
 
-use Lcobucci\JWT\Claim;
-use Lcobucci\JWT\Parser;
-use Lcobucci\JWT\Signer;
+use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Token;
-use Lcobucci\JWT\ValidationData;
+use Lcobucci\JWT\Token\RegisteredClaims;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleAuth\Middleware\AuthMiddleware;
 use SimpleAuth\Model\UserAccess;
+use SimpleAuth\Service\ConfigurationService;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
 use SimpleStructure\Tool\ParamPack;
@@ -17,242 +17,158 @@ final class AuthMiddlewareTest extends TestCase
     /** @var string */
     private $publicKey = 'public_key';
 
-    /** @var Request|PHPUnit_Framework_MockObject_MockObject */
+    /** @var Request|MockObject */
     private $requestMock;
 
-    /** @var ParamPack|PHPUnit_Framework_MockObject_MockObject */
+    /** @var ParamPack|MockObject */
     private $headersMock;
 
-    /** @var Parser|PHPUnit_Framework_MockObject_MockObject */
-    private $parserMock;
+    /** @var ConfigurationService|MockObject */
+    private $configMock;
 
-    /** @var Signer|PHPUnit_Framework_MockObject_MockObject */
-    private $signerMock;
-
-    /** @var Token|PHPUnit_Framework_MockObject_MockObject */
+    /** @var Token|MockObject */
     private $tokenMock;
-
-    /** @var ValidationData|PHPUnit_Framework_MockObject_MockObject */
-    private $validationDataMock;
 
     /** @before */
     public function setupMocks()
     {
         $this->requestMock = $this->createMock(Request::class);
-        $this->headersMock = $this->requestMock->headers = $this->createMock(ParamPack::class);
+        $this->headersMock = $this->createMock(ParamPack::class);
+        $this->requestMock->headers = $this->headersMock;
 
-        $this->parserMock = $this->createMock(Parser::class);
-        $this->signerMock = $this->createMock(Signer::class);
+        $this->configMock = $this->createMock(ConfigurationService::class);
         $this->tokenMock = $this->createMock(Token::class);
-        $this->validationDataMock = $this->createMock(ValidationData::class);
     }
 
     /**
-     * Test unknown token
+     * Test not existed authorization header
      *
-     * @param string      $method  method
-     * @param string      $token   token
-     * @param string|null $message message
+     * @param string $headerValue header value
      *
-     * @testWith ["getUserAccessIfExists", null]
-     *           ["getUserAccessIfExists", ""]
-     *           ["getUserAccessIfExists", "a b c", "Authorization token incorrect."]
-     *           ["getUserAccessIfExists", "Bearer", "Authorization token incorrect."]
-     *           ["getUserAccessIfExists", "Bearer ", "Authorization token incorrect."]
-     *           ["getUserAccessIfExists", "Bearer jwt abc", "Authorization token incorrect."]
-     *           ["getUserOrNoAccess", null, "No authorization token."]
-     *           ["getUserOrNoAccess", "", "No authorization token."]
-     *           ["getUserOrNoAccess", "a b c", "Authorization token incorrect."]
-     *           ["getUserOrNoAccess", "Bearer", "Authorization token incorrect."]
-     *           ["getUserOrNoAccess", "Bearer ", "Authorization token incorrect."]
-     *           ["getUserOrNoAccess", "Bearer jwt abc", "Authorization token incorrect."]
+     * @testWith [""]
+     *           [null]
      */
-    public function testUnknownToken($method, $token, $message = null)
+    public function testNotExistedAuthorizationHeader($headerValue)
     {
         $this->headersMock
             ->method('getString')
             ->with('authorization')
-            ->willReturn($token)
+            ->willReturn($headerValue)
         ;
 
-        $middleware = new AuthMiddleware($this->parserMock, $this->signerMock, $this->validationDataMock,
-            $this->publicKey);
-        if (isset($message)) {
-            $this->expectException(UnauthorizedException::class);
-            $this->expectExceptionMessage($message);
-            $middleware->$method($this->requestMock);
-        } else {
-            $this->assertNull($middleware->$method($this->requestMock));
-        }
+        $middleware = new AuthMiddleware($this->configMock, 'key1');
+        $this->assertNull($middleware->getUserAccessIfExists($this->requestMock));
     }
 
     /**
-     * Test not verified token
-     *
-     * @param string $method method
-     *
-     * @testWith ["getUserAccessIfExists"]
-     *           ["getUserOrNoAccess"]
+     * Test invalid token with authorization header
      */
-    public function testNotVerifiedToken($method)
+    public function testInvalidTokenWithAuthorizationHeader()
     {
         $this->headersMock
             ->method('getString')
             ->with('authorization')
-            ->willReturn('Bearer jwt')
+            ->willReturn('abc')
+        ;
+        $this->configMock
+            ->method('getToken')
+            ->willReturn($this->getToken([]))
+        ;
+        $this->configMock
+            ->method('verifyAndValidate')
+            ->willThrowException(new UnauthorizedException('exception from configuration service'))
         ;
 
-        $middleware = new AuthMiddleware($this->parserMock, $this->signerMock, $this->validationDataMock,
-            $this->publicKey);
-        $this->parserMock
-            ->method('parse')
-            ->with('jwt')
-            ->willReturn($this->tokenMock)
-        ;
-        $this->tokenMock
-            ->method('verify')
-            ->with($this->signerMock, 'public_key')
-            ->willReturn(false)
-        ;
+        $middleware = new AuthMiddleware($this->configMock, 'key1');
         $this->expectException(UnauthorizedException::class);
-        $this->expectExceptionMessage('Authorization token not verified.');
-        $middleware->$method($this->requestMock);
+        $this->expectExceptionMessage('exception from configuration service');
+        $middleware->getUserAccessIfExists($this->requestMock);
     }
 
     /**
-     * Test invalid token
-     *
-     * @param string $method method
-     *
-     * @testWith ["getUserAccessIfExists"]
-     *           ["getUserOrNoAccess"]
+     * Test valid token with authorization header
      */
-    public function testInvalidToken($method)
+    public function testValidTokenWithAuthorizationHeader()
     {
-        $this->headersMock
-            ->method('getString')
-            ->with('authorization')
-            ->willReturn('Bearer jwt')
-        ;
-
-        $middleware = new AuthMiddleware($this->parserMock, $this->signerMock, $this->validationDataMock,
-            $this->publicKey);
-        $this->parserMock
-            ->method('parse')
-            ->with('jwt')
-            ->willReturn($this->tokenMock)
-        ;
-        $this->tokenMock
-            ->method('verify')
-            ->with($this->signerMock, 'public_key')
-            ->willReturn(true)
-        ;
-        $this->tokenMock
-            ->method('validate')
-            ->with($this->validationDataMock)
-            ->willReturn(false)
-        ;
-        $this->expectException(UnauthorizedException::class);
-        $this->expectExceptionMessage('Authorization token invalid.');
-        $middleware->$method($this->requestMock);
-    }
-
-    /**
-     * Test returning JWT
-     *
-     * @param string        $method       method
-     * @param string|null   $email        e-mail
-     * @param string[]|null $capabilities capabilities
-     * @param int|null      $issuedAt     issued at
-     * @param int|null      $expiresAt    expires at
-     *
-     * @testWith ["getUserAccessIfExists", null, null, null, null]
-     *           ["getUserAccessIfExists", "issuer@example.com", ["a", "b"], 1234567890, 1234567891]
-     *           ["getUserOrNoAccess", null, null, null, null]
-     *           ["getUserOrNoAccess", "issuer@example.com", ["a", "b"], 1234567890, 1234567891]
-     *
-     * @throws Exception
-     */
-    public function testReturningJwt($method, $email, $capabilities, $issuedAt, $expiresAt)
-    {
-        $this->headersMock
-            ->method('getString')
-            ->with('authorization')
-            ->willReturn('Bearer jwt')
-        ;
-
-        $middleware = new AuthMiddleware($this->parserMock, $this->signerMock, $this->validationDataMock,
-            $this->publicKey);
-        $this->parserMock
-            ->method('parse')
-            ->with('jwt')
-            ->willReturn($this->tokenMock)
-        ;
-        $this->tokenMock
-            ->method('verify')
-            ->with($this->signerMock, 'public_key')
-            ->willReturn(true)
-        ;
-        $this->tokenMock
-            ->method('validate')
-            ->with($this->validationDataMock)
-            ->willReturn(true)
-        ;
         $claims = [
-            'capabilities' => $capabilities,
-            'email' => $email,
-            'exp' => $expiresAt,
-            'iat' => $issuedAt,
+            'claim1' => 'a',
+            'claim2' => 2,
         ];
-        $this->tokenMock
-            ->method('getClaims')
-            ->willReturn(array_map(function ($key, $value) {
-                return new TestClaim395($key, $value);
-            }, array_keys($claims), array_values($claims)))
+        $this->headersMock
+            ->method('getString')
+            ->with('authorization')
+            ->willReturn('abc')
         ;
-        /** @var UserAccess $userAccess */
-        $userAccess = $middleware->$method($this->requestMock);
-        $this->assertEquals($email, $userAccess->getEmail());
-        $this->assertEquals(isset($capabilities) ? $capabilities : [], $userAccess->getCapabilities());
-        $accessIssuedAt = $userAccess->getIssuedAt();
-        $this->assertEquals($issuedAt, isset($accessIssuedAt) ? $accessIssuedAt->getTimestamp() : null);
-        $accessExpiresAt = $userAccess->getExpiresAt();
-        $this->assertEquals($expiresAt, isset($accessExpiresAt) ? $accessExpiresAt->getTimestamp() : null);
+        $this->configMock
+            ->method('getToken')
+            ->willReturn($this->getToken($claims))
+        ;
+        $this->configMock
+            ->method('verifyAndValidate')
+            ->willReturn(null)
+        ;
+
+        $middleware = new AuthMiddleware($this->configMock, 'key1');
+        $userAccess = $middleware->getUserAccessIfExists($this->requestMock);
         $this->assertEquals($claims, $userAccess->getJwtClaims());
-        $this->assertEquals($email, $userAccess->getJwtClaim('email'));
-        $this->assertEquals('abc', $userAccess->getJwtClaim('notExistedClaim', 'abc'));
-        $this->assertEquals(null, $userAccess->getJwtClaim('notExistedClaim'));
-    }
-}
-
-class TestClaim395 implements Claim
-{
-    private $name;
-    private $value;
-
-    public function __construct($name, $value)
-    {
-        $this->name = $name;
-        $this->value = $value;
     }
 
-    public function getName()
+    /**
+     * Test invalid token without authorization header
+     */
+    public function testInvalidTokenWithoutAuthorizationHeader()
     {
-        return $this->name;
+        $this->configMock
+            ->method('getToken')
+            ->willReturn($this->getToken([]))
+        ;
+        $this->configMock
+            ->method('verifyAndValidate')
+            ->willThrowException(new UnauthorizedException('exception from configuration service'))
+        ;
+
+        $middleware = new AuthMiddleware($this->configMock, 'key1');
+        $this->expectException(UnauthorizedException::class);
+        $this->expectExceptionMessage('exception from configuration service');
+        $middleware->getUserOrNoAccess($this->requestMock);
     }
 
-    public function getValue()
+    /**
+     * Test valid token without authorization header
+     */
+    public function testValidTokenWithoutAuthorizationHeader()
     {
-        return $this->value;
+        $claims = [
+            'claim1' => 'a',
+            'claim2' => 2,
+        ];
+        $this->configMock
+            ->method('getToken')
+            ->willReturn($this->getToken($claims))
+        ;
+        $this->configMock
+            ->method('verifyAndValidate')
+            ->willReturn(null)
+        ;
+
+        $middleware = new AuthMiddleware($this->configMock, 'key1');
+        $userAccess = $middleware->getUserOrNoAccess($this->requestMock);
+        $this->assertEquals($claims, $userAccess->getJwtClaims());
     }
 
-    public function __toString()
+    /**
+     * Get token
+     *
+     * @param array $claims claims
+     *
+     * @return Token\Plain
+     */
+    private function getToken(array $claims)
     {
-        return (string) $this->value;
-    }
-
-    public function jsonSerialize()
-    {
-        return null;
+        return new Token\Plain(
+            new Token\DataSet([], ''),
+            new Token\DataSet($claims, ''),
+            Token\Signature::fromEmptyData(),
+        );
     }
 }

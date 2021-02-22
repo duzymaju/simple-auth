@@ -2,20 +2,21 @@
 
 namespace SimpleAuth\Provider;
 
-use Lcobucci\JWT\Builder;
-use Lcobucci\JWT\Signer;
-use Lcobucci\JWT\Signer\Key;
+use DateInterval;
+use Lcobucci\Clock\Clock;
+use Lcobucci\Clock\SystemClock;
+use Lcobucci\JWT\Configuration;
 
 class AuthHeaderProvider
 {
-    /** @var Builder */
-    private $builder;
+    /** @var Clock */
+    private $clock;
 
-    /** @var Signer */
-    private $signer;
+    /** @var Configuration */
+    private $config;
 
-    /** @var Key */
-    private $privateKey;
+    /** @var string */
+    private $issuer;
 
     /** @var int */
     private $expirationPeriod;
@@ -26,20 +27,30 @@ class AuthHeaderProvider
     /**
      * Construct
      *
-     * @param Builder $builder          builder
-     * @param Signer  $signer           signer
-     * @param string  $issuer           issuer
-     * @param string  $privateKey       private key
-     * @param int     $expirationPeriod expiration period
+     * @param Configuration $config           config
+     * @param string        $issuer           issuer
+     * @param int           $expirationPeriod expiration period
      */
-    public function __construct(Builder $builder, Signer $signer, $issuer, $privateKey, $expirationPeriod = 60)
+    public function __construct(Configuration $config, $issuer, $expirationPeriod = 60)
     {
-        $builder->issuedBy($issuer);
-
-        $this->builder = $builder;
-        $this->signer = $signer;
-        $this->privateKey = new Key($privateKey);
+        $this->clock = SystemClock::fromSystemTimezone();
+        $this->config = $config;
+        $this->issuer = $issuer;
         $this->expirationPeriod = $expirationPeriod;
+    }
+
+    /**
+     * Set clock
+     *
+     * @param Clock $clock clock
+     *
+     * @return self
+     */
+    public function setClock(Clock $clock)
+    {
+        $this->clock = $clock;
+
+        return $this;
     }
 
     /**
@@ -63,16 +74,21 @@ class AuthHeaderProvider
      */
     public function getToken()
     {
-        $now = time();
-        $this->builder
+        $now = $this->clock->now();
+        $builder = $this->config->builder();
+        $builder
+            ->issuedBy($this->issuer)
             ->issuedAt($now)
-            ->expiresAt($now + $this->expirationPeriod)
+            ->expiresAt($now->add(new DateInterval(sprintf('PT%dS', $this->expirationPeriod))))
         ;
         if (is_string($this->audience)) {
-            $this->builder->permittedFor($this->audience);
+            $builder->permittedFor($this->audience);
         }
 
-        return (string) $this->builder->getToken($this->signer, $this->privateKey);
+        return $builder
+            ->getToken($this->config->signer(), $this->config->signingKey())
+            ->toString()
+        ;
     }
 
     /**

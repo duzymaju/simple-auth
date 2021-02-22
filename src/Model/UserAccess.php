@@ -2,10 +2,11 @@
 
 namespace SimpleAuth\Model;
 
-use DateTime;
+use DateTimeImmutable;
 use DateTimeZone;
 use Exception;
-use Lcobucci\JWT\Claim;
+use Lcobucci\JWT\Token\DataSet;
+use Lcobucci\JWT\Token\RegisteredClaims;
 use SimpleStructure\Exception\UnauthorizedException;
 
 class UserAccess
@@ -19,29 +20,29 @@ class UserAccess
     /** @var string[]|false */
     private $capabilities = false;
 
-    /** @var DateTime|false|null */
+    /** @var DateTimeImmutable|false|null */
     private $issuedAt = false;
 
-    /** @var DateTime|false|null */
+    /** @var DateTimeImmutable|false|null */
     private $expiresAt = false;
+
+    /** @var string|false|null */
+    private $issuer = false;
 
     /** @var string|false|null */
     private $audience = false;
 
-    /** @var mixed[] */
-    private $jwtClaims = [];
+    /** @var DataSet */
+    private $jwtClaims;
 
     /**
      * Construct
      *
-     * @param Claim[] $jwtClaims JWT claims
+     * @param DataSet $jwtClaims JWT claims
      */
-    public function __construct(array $jwtClaims)
+    public function __construct(DataSet $jwtClaims)
     {
-        /** @var Claim $claim */
-        foreach ($jwtClaims as $claim) {
-            $this->jwtClaims[$claim->getName()] = $claim->getValue();
-        }
+        $this->jwtClaims = $jwtClaims;
     }
 
     /**
@@ -136,16 +137,16 @@ class UserAccess
     /**
      * Get issued at
      *
-     * @return DateTime|null
+     * @return DateTimeImmutable|null
      *
      * @throws Exception
      */
     public function getIssuedAt()
     {
         if ($this->issuedAt === false) {
-            $value = $this->getJwtClaim('iat');
+            $value = $this->getJwtClaim(RegisteredClaims::ISSUED_AT);
             $dateTimeZone = new DateTimeZone(date_default_timezone_get());
-            $this->issuedAt = is_int($value) && $value > 0 ? new DateTime('@' . $value, $dateTimeZone) : null;
+            $this->issuedAt = is_int($value) && $value > 0 ? new DateTimeImmutable('@' . $value, $dateTimeZone) : null;
         }
 
         return $this->issuedAt;
@@ -154,32 +155,44 @@ class UserAccess
     /**
      * Get expires at
      *
-     * @return DateTime|null
+     * @return DateTimeImmutable|null
      *
      * @throws Exception
      */
     public function getExpiresAt()
     {
         if ($this->expiresAt === false) {
-            $value = $this->getJwtClaim('exp');
+            $value = $this->getJwtClaim(RegisteredClaims::EXPIRATION_TIME);
             $dateTimeZone = new DateTimeZone(date_default_timezone_get());
-            $this->expiresAt = is_int($value) && $value > 0 ? new DateTime('@' . $value, $dateTimeZone) : null;
+            $this->expiresAt = is_int($value) && $value > 0 ? new DateTimeImmutable('@' . $value, $dateTimeZone) : null;
         }
 
         return $this->expiresAt;
     }
 
     /**
+     * Get issuer
+     *
+     * @return string|null
+     */
+    public function getIssuer()
+    {
+        if ($this->issuer === false) {
+            $this->issuer = $this->getJwtClaim(RegisteredClaims::ISSUER);
+        }
+
+        return $this->issuer;
+    }
+
+    /**
      * Get audience
      *
      * @return string|null
-     *
-     * @throws Exception
      */
     public function getAudience()
     {
         if ($this->audience === false) {
-            $this->audience = $this->getJwtClaim('aud');
+            $this->audience = $this->getJwtClaim(RegisteredClaims::AUDIENCE);
         }
 
         return $this->audience;
@@ -192,7 +205,7 @@ class UserAccess
      */
     public function getJwtClaims()
     {
-        return $this->jwtClaims;
+        return $this->jwtClaims->all();
     }
 
     /**
@@ -205,6 +218,6 @@ class UserAccess
      */
     public function getJwtClaim($name, $defaultValue = null)
     {
-        return array_key_exists($name, $this->jwtClaims) ? $this->jwtClaims[$name] : $defaultValue;
+        return $this->jwtClaims->has($name) ? $this->jwtClaims->get($name) : $defaultValue;
     }
 }

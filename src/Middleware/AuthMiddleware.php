@@ -3,29 +3,28 @@
 namespace SimpleAuth\Middleware;
 
 use Exception;
-use Lcobucci\JWT\Parser;
-use Lcobucci\JWT\Signer;
-use Lcobucci\JWT\ValidationData;
 use SimpleAuth\Model\UserAccess;
+use SimpleAuth\Service\ConfigurationService;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
 
-class AuthMiddleware extends AuthMiddlewareAbstract
+class AuthMiddleware
 {
+    /** @var ConfigurationService */
+    private $config;
+
     /** @var string */
     private $publicKey;
 
     /**
      * Construct
      *
-     * @param Parser         $parser         parser
-     * @param Signer         $signer         signer
-     * @param ValidationData $validationData validation data
-     * @param string         $publicKey      public key
+     * @param ConfigurationService $config    config
+     * @param string               $publicKey public key
      */
-    public function __construct(Parser $parser, Signer $signer, ValidationData $validationData, $publicKey)
+    public function __construct(ConfigurationService $config, $publicKey)
     {
-        parent::__construct($parser, $signer, $validationData);
+        $this->config = $config;
         $this->publicKey = $publicKey;
     }
 
@@ -59,9 +58,9 @@ class AuthMiddleware extends AuthMiddlewareAbstract
      */
     public function getUserOrNoAccess(Request $request)
     {
-        $token = $this->getToken($request);
-        $this->verifyAndValidate($token, $this->publicKey);
+        $token = $this->config->getToken($request);
+        $this->config->verifyAndValidate($token, $this->publicKey);
 
-        return new UserAccess($token->getClaims());
+        return new UserAccess($token->claims());
     }
 }

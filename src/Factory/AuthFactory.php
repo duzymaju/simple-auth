@@ -2,18 +2,16 @@
 
 namespace SimpleAuth\Factory;
 
-use Lcobucci\JWT\Builder;
-use Lcobucci\JWT\Parser;
-use Lcobucci\JWT\Signer;
-use Lcobucci\JWT\Signer\Ecdsa;
-use Lcobucci\JWT\Signer\Hmac;
-use Lcobucci\JWT\Signer\Rsa;
-use Lcobucci\JWT\ValidationData;
+use Lcobucci\Clock\SystemClock;
+use Lcobucci\JWT\Configuration;
+use Lcobucci\JWT\Signer\Key;
+use Lcobucci\JWT\Validation\Constraint;
 use SimpleAuth\Middleware\AuthItemsMiddleware;
 use SimpleAuth\Middleware\AuthListMiddleware;
 use SimpleAuth\Middleware\AuthMiddleware;
 use SimpleAuth\Model\AuthItemInterface;
 use SimpleAuth\Provider\AuthHeaderProvider;
+use SimpleAuth\Service\ConfigurationService;
 
 class AuthFactory
 {
@@ -26,8 +24,8 @@ class AuthFactory
     /**
      * Construct
      *
-     * @param string|null $algorithm algorithm
-     * @param string|null $hash      hash
+     * @param string|null $algorithm   algorithm
+     * @param string|null $hash        hash
      */
     public function __construct($algorithm = null, $hash = null)
     {
@@ -46,10 +44,9 @@ class AuthFactory
      */
     public function getHeaderProvider($issuer, $privateKey, $expirationPeriod = 60)
     {
-        $builder = $this->getBuilder();
-        $signer = $this->getSigner();
+        $config = new ConfigurationService($privateKey, $this->algorithm, $this->hash);
 
-        return new AuthHeaderProvider($builder, $signer, $issuer, $privateKey, $expirationPeriod);
+        return new AuthHeaderProvider($config->getConfiguration(), $issuer, $expirationPeriod);
     }
 
     /**
@@ -57,16 +54,16 @@ class AuthFactory
      *
      * @param string      $publicKey public key
      * @param string|null $audience  audience
+     * @param string|null $issuer    issuer
      *
      * @return AuthMiddleware
      */
-    public function getAuthMiddleware($publicKey, $audience = null)
+    public function getAuthMiddleware($publicKey, $audience = null, $issuer = null)
     {
-        $parser = $this->getParser();
-        $signer = $this->getSigner();
-        $validationData = $this->getValidationData($audience);
-
-        return new AuthMiddleware($parser, $signer, $validationData, $publicKey);
+        return new AuthMiddleware(
+            new ConfigurationService(null, $this->algorithm, $this->hash, $audience, $issuer),
+            $publicKey,
+        );
     }
 
     /**
@@ -74,16 +71,16 @@ class AuthFactory
      *
      * @param string[]    $publicKeys public keys
      * @param string|null $audience   audience
+     * @param string|null $issuer     issuer
      *
      * @return AuthListMiddleware
      */
-    public function getAuthListMiddleware(array $publicKeys, $audience = null)
+    public function getAuthListMiddleware(array $publicKeys, $audience = null, $issuer = null)
     {
-        $parser = $this->getParser();
-        $signer = $this->getSigner();
-        $validationData = $this->getValidationData($audience);
-
-        return new AuthListMiddleware($parser, $signer, $validationData, $publicKeys);
+        return new AuthListMiddleware(
+            new ConfigurationService(null, $this->algorithm, $this->hash, $audience, $issuer),
+            $publicKeys,
+        );
     }
 
     /**
@@ -96,97 +93,9 @@ class AuthFactory
      */
     public function getAuthItemsMiddleware(array $items, $audience = null)
     {
-        $parser = $this->getParser();
-        $signer = $this->getSigner();
-        $validationData = $this->getValidationData($audience);
-
-        return new AuthItemsMiddleware($parser, $signer, $validationData, $items);
-    }
-
-    /**
-     * Get builder
-     *
-     * @return Builder
-     */
-    private function getBuilder()
-    {
-        return new Builder();
-    }
-
-    /**
-     * Get parser
-     *
-     * @return Parser
-     */
-    private function getParser()
-    {
-        return new Parser();
-    }
-
-    /**
-     * Get signer
-     *
-     * @return Signer
-     */
-    private function getSigner()
-    {
-        switch ($this->algorithm) {
-            case 'ecdsa':
-                switch ($this->hash) {
-                    case 'sha512':
-                        return new Ecdsa\Sha512();
-
-                    case 'sha384':
-                        return new Ecdsa\Sha384();
-
-                    case 'sha256':
-                    default;
-                        return new Ecdsa\Sha256();
-                }
-
-            case 'hmac':
-                switch ($this->hash) {
-                    case 'sha512':
-                        return new Hmac\Sha512();
-
-                    case 'sha384':
-                        return new Hmac\Sha384();
-
-                    case 'sha256':
-                    default;
-                        return new Hmac\Sha256();
-                }
-
-            case 'rsa':
-            default:
-                switch ($this->hash) {
-                    case 'sha512':
-                        return new Rsa\Sha512();
-
-                    case 'sha384':
-                        return new Rsa\Sha384();
-
-                    case 'sha256':
-                    default;
-                        return new Rsa\Sha256();
-                }
-        }
-    }
-
-    /**
-     * Get validation data
-     *
-     * @param string|null $audience audience
-     *
-     * @return ValidationData
-     */
-    private function getValidationData($audience)
-    {
-        $validationData = new ValidationData();
-        if (is_string($audience)) {
-            $validationData->setAudience($audience);
-        }
-
-        return $validationData;
+        return new AuthItemsMiddleware(
+            new ConfigurationService(null, $this->algorithm, $this->hash, $audience),
+            $items,
+        );
     }
 }

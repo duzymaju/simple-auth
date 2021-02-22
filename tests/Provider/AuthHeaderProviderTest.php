@@ -1,19 +1,18 @@
 <?php
 
-use Lcobucci\JWT\Builder;
-use Lcobucci\JWT\Parser;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
-use Lcobucci\JWT\ValidationData;
+use Lcobucci\Clock\FrozenClock;
+use Lcobucci\JWT\Configuration;
+use Lcobucci\JWT\Signer\Key;
+use Lcobucci\JWT\Signer\Rsa;
+use Lcobucci\JWT\Token\RegisteredClaims;
+use Lcobucci\JWT\Validation\Constraint;
 use PHPUnit\Framework\TestCase;
 use SimpleAuth\Provider\AuthHeaderProvider;
 
 final class AuthHeaderProviderTest extends TestCase
 {
     /** @var string */
-    private $issuer = 'issuer1';
-
-    /** @var string */
-    private $privateKey = '-----BEGIN RSA PRIVATE KEY-----
+    const PRIVATE_KEY = '-----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEAuMdWncKKA5dEciISjChIF9NMuxrS7E/D2bz2OGAEdXS+fIo4
 XG6EsC6qG/jO7PQafLRZCCpHVi0cqI2SIeP4K2BMGwl3GN9XJf/VDr4GpLmUr/Vf
 /mEQpt4GaB2P+5VIhxDPjAN3jChem2F5QyhPZXgQI2eFtnue4NWdpGiOhBCbVebg
@@ -42,7 +41,7 @@ sAufwwSmo4EG4ksKtaklUYMrcJR1VC1Bx2kEwckj9oUADnfaKu4=
 -----END RSA PRIVATE KEY-----';
 
     /** @var string */
-    private $publicKey = '-----BEGIN PUBLIC KEY-----
+    const PUBLIC_KEY = '-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuMdWncKKA5dEciISjChI
 F9NMuxrS7E/D2bz2OGAEdXS+fIo4XG6EsC6qG/jO7PQafLRZCCpHVi0cqI2SIeP4
 K2BMGwl3GN9XJf/VDr4GpLmUr/Vf/mEQpt4GaB2P+5VIhxDPjAN3jChem2F5QyhP
@@ -52,15 +51,33 @@ kjVpU867fQstZEqTL0OOXkxt+b/Bw0L4F6Uwy5W+9cDYSg8kCw7qDzzcRmEULEYl
 rQIDAQAB
 -----END PUBLIC KEY-----';
 
+    /** @var string */
+    const ISSUER = 'issuer1';
+
+    /** @var Configuration */
+    private $config;
+
+    /** @before */
+    public function generateKeys()
+    {
+        $this->config = Configuration::forAsymmetricSigner(
+            new Rsa\Sha256(), Key\InMemory::plainText(self::PRIVATE_KEY), Key\InMemory::plainText(self::PUBLIC_KEY),
+        );
+        $this->config->setValidationConstraints(
+            new Constraint\IssuedBy(self::ISSUER),
+            new Constraint\SignedWith($this->config->signer(), $this->config->verificationKey()),
+        );
+    }
+
     /**
      * Test JWT generation
      */
     public function testJwtGeneration()
     {
-        $provider = new AuthHeaderProvider(new Builder(), new Sha256(), $this->issuer, $this->privateKey);
+        $provider = new AuthHeaderProvider($this->config, self::ISSUER);
         $jwt = $provider->getToken();
         $this->assertTrue(is_string($jwt));
-        $this->assertEquals(3, count(explode('.', $jwt)));
+        $this->assertCount(3, explode('.', $jwt));
     }
 
     /**
@@ -68,19 +85,75 @@ rQIDAQAB
      */
     public function testHeaderGeneration()
     {
-        $provider = new AuthHeaderProvider(new Builder(), new Sha256(), $this->issuer, $this->privateKey);
+        $provider = new AuthHeaderProvider($this->config, self::ISSUER);
         $this->assertStringStartsWith('Authorization: Bearer ', $provider->getHeader());
     }
 
     /**
-     * Test JWT checking
+     * Test JWT without audience
      */
-    public function testJwtChecking()
+    public function testJwtWithoutAudience()
     {
-        $provider = new AuthHeaderProvider(new Builder(), new Sha256(), $this->issuer, $this->privateKey);
-        $parser = new Parser();
+        $provider = new AuthHeaderProvider($this->config, self::ISSUER);
+        $parser = $this->config->parser();
         $token = $parser->parse($provider->getToken());
-        $this->assertTrue($token->verify(new Sha256(), $this->publicKey));
-        $this->assertTrue($token->validate(new ValidationData()));
+        $claims = $token->claims();
+
+        $validator = $this->config->validator();
+        $this->assertTrue($validator->validate($token, ...$this->config->validationConstraints()));
+        $this->assertFalse($claims->has(RegisteredClaims::AUDIENCE));
+    }
+
+    /**
+     * Test JWT with audience
+     */
+    public function testJwtWithAudience()
+    {
+        $audience = 'service1';
+        $expirationPeriod = 60;
+        $now = new DateTimeImmutable('2021-02-06T03:36:00');
+        $clock = new FrozenClock($now);
+
+        $provider = new AuthHeaderProvider($this->config, self::ISSUER, $expirationPeriod);
+        $provider
+            ->setClock($clock)
+            ->setAudience($audience)
+        ;
+        $parser = $this->config->parser();
+        $token = $parser->parse($provider->getToken());
+        $claims = $token->claims();
+
+        $clock->setTo($now->add(new DateInterval(sprintf('PT%dS', $expirationPeriod - 5))));
+        $validator = $this->config->validator();
+        $this->assertTrue($validator->validate(
+            $token,
+            new Constraint\LooseValidAt($clock),
+            new Constraint\PermittedFor($audience),
+            ...$this->config->validationConstraints(),
+        ));
+        $this->assertTrue($claims->has(RegisteredClaims::AUDIENCE));
+    }
+
+    /**
+     * Test expired JWT
+     */
+    public function testExpiredJwt()
+    {
+        $expirationPeriod = 60;
+        $now = new DateTimeImmutable('2021-02-06T03:36:00');
+        $clock = new FrozenClock($now);
+
+        $provider = new AuthHeaderProvider($this->config, self::ISSUER, $expirationPeriod);
+        $provider->setClock($clock);
+        $parser = $this->config->parser();
+        $token = $parser->parse($provider->getToken());
+
+        $clock->setTo($now->add(new DateInterval(sprintf('PT%dS', $expirationPeriod + 5))));
+        $validator = $this->config->validator();
+        $this->assertFalse($validator->validate(
+            $token,
+            new Constraint\LooseValidAt($clock),
+            ...$this->config->validationConstraints(),
+        ));
     }
 }

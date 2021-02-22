@@ -2,29 +2,29 @@
 
 namespace SimpleAuth\Middleware;
 
-use Lcobucci\JWT\Parser;
-use Lcobucci\JWT\Signer;
-use Lcobucci\JWT\ValidationData;
+use Lcobucci\JWT\Token\RegisteredClaims;
 use SimpleAuth\Model\AuthItemInterface;
+use SimpleAuth\Service\ConfigurationService;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
 
-class AuthItemsMiddleware extends AuthMiddlewareAbstract
+class AuthItemsMiddleware
 {
+    /** @var ConfigurationService */
+    private $config;
+
     /** @var AuthItemInterface[] */
     private $items;
 
     /**
      * Construct
      *
-     * @param Parser              $parser         parser
-     * @param Signer              $signer         signer
-     * @param ValidationData      $validationData validation data
-     * @param AuthItemInterface[] $items          items
+     * @param ConfigurationService $config config
+     * @param AuthItemInterface[]  $items  items
      */
-    public function __construct(Parser $parser, Signer $signer, ValidationData $validationData, array $items)
+    public function __construct(ConfigurationService $config, array $items)
     {
-        parent::__construct($parser, $signer, $validationData);
+        $this->config = $config;
         $this->items = $items;
     }
 
@@ -39,16 +39,17 @@ class AuthItemsMiddleware extends AuthMiddlewareAbstract
      */
     public function getAuthItem(Request $request)
     {
-        $token = $this->getToken($request);
-        if (!$token->hasClaim('iss')) {
+        $token = $this->config->getToken($request);
+        $claims = $token->claims();
+        if (!$claims->has(RegisteredClaims::ISSUER)) {
             throw new UnauthorizedException('Authorization token has no issuer defined.');
         }
-        $issuer = $token->getClaim('iss');
+        $issuer = $claims->get(RegisteredClaims::ISSUER);
         foreach ($this->items as $item) {
             if ($item->getName() != $issuer) {
                 continue;
             }
-            $this->verifyAndValidate($token, $item->getKey());
+            $this->config->verifyAndValidate($token, $item->getKey());
             return $item;
         }
 

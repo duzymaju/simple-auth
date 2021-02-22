@@ -1,4 +1,4 @@
-### Simple auth
+# Simple auth
 
 Simple PHP auth system
 

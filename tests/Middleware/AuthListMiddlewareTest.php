@@ -1,203 +1,106 @@
 <?php
 
-use Lcobucci\JWT\Claim;
-use Lcobucci\JWT\Parser;
-use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Token;
-use Lcobucci\JWT\ValidationData;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleAuth\Middleware\AuthListMiddleware;
+use SimpleAuth\Service\ConfigurationService;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
-use SimpleStructure\Tool\ParamPack;
 
 final class AuthListMiddlewareTest extends TestCase
 {
-    /** @var Request|PHPUnit_Framework_MockObject_MockObject */
+    /** @var Request|MockObject */
     private $requestMock;
 
-    /** @var ParamPack|PHPUnit_Framework_MockObject_MockObject */
-    private $headersMock;
+    /** @var ConfigurationService|MockObject */
+    private $configMock;
 
-    /** @var Parser|PHPUnit_Framework_MockObject_MockObject */
-    private $parserMock;
-
-    /** @var Signer|PHPUnit_Framework_MockObject_MockObject */
-    private $signerMock;
-
-    /** @var Token|PHPUnit_Framework_MockObject_MockObject */
+    /** @var Token|MockObject */
     private $tokenMock;
-
-    /** @var ValidationData|PHPUnit_Framework_MockObject_MockObject */
-    private $validationDataMock;
 
     /** @before */
     public function setupMocks()
     {
         $this->requestMock = $this->createMock(Request::class);
-        $this->headersMock = $this->requestMock->headers = $this->createMock(ParamPack::class);
-
-        $this->parserMock = $this->createMock(Parser::class);
-        $this->signerMock = $this->createMock(Signer::class);
+        $this->configMock = $this->createMock(ConfigurationService::class);
         $this->tokenMock = $this->createMock(Token::class);
-        $this->validationDataMock = $this->createMock(ValidationData::class);
     }
 
     /**
-     * Test unknown token
-     *
-     * @param string|null $token   token
-     * @param string      $message message
-     *
-     * @throws UnauthorizedException
-     *
-     * @testWith [null, "No authorization token."]
-     *           ["", "No authorization token."]
-     *           ["a b c", "Authorization token incorrect."]
-     *           ["Bearer", "Authorization token incorrect."]
-     *           ["Bearer ", "Authorization token incorrect."]
-     *           ["Bearer jwt abc", "Authorization token incorrect."]
+     * Test empty public keys list
      */
-    public function testUnknownToken($token, $message)
+    public function testEmptyPublicKeysList()
     {
-        $this->headersMock
-            ->method('getString')
-            ->with('authorization')
-            ->willReturn($token)
+        $this->configMock
+            ->method('getToken')
+            ->willReturn($this->getToken([]))
         ;
 
-        $middleware = new AuthListMiddleware($this->parserMock, $this->signerMock, $this->validationDataMock, []);
-        $this->expectException(UnauthorizedException::class);
-        $this->expectExceptionMessage($message);
-        $middleware->getClaimsOrNoAccess($this->requestMock);
-    }
-
-    /**
-     * Test not verified token
-     *
-     * @throws UnauthorizedException
-     */
-    public function testNotVerifiedToken()
-    {
-        $this->headersMock
-            ->method('getString')
-            ->with('authorization')
-            ->willReturn('Bearer jwt')
-        ;
-
-        $middleware = new AuthListMiddleware($this->parserMock, $this->signerMock, $this->validationDataMock, [
-            'public_key_1', 'public_key_2',
-        ]);
-        $this->parserMock
-            ->method('parse')
-            ->with('jwt')
-            ->willReturn($this->tokenMock)
-        ;
-        $this->tokenMock
-            ->expects($this->exactly(2))
-            ->method('verify')
-            ->will($this->returnCallback(function ($signer, $publicKey) {
-                unset($signer);
-                switch ($publicKey) {
-                    case 'public_key_1': return false;
-                    case 'public_key_2': return true;
-                    default: return false;
-                }
-            }))
-        ;
-        $this->tokenMock
-            ->expects($this->exactly(1))
-            ->method('validate')
-            ->with($this->validationDataMock)
-            ->willReturn(false)
-        ;
+        $middleware = new AuthListMiddleware($this->configMock, []);
         $this->expectException(UnauthorizedException::class);
         $this->expectExceptionMessage('Public key which could positively verify authorization token not found.');
         $middleware->getClaimsOrNoAccess($this->requestMock);
     }
 
     /**
-     * Test getting claims
-     *
-     * @throws UnauthorizedException
+     * Test invalid tokens
      */
-    public function testGettingClaims()
+    public function testInvalidTokens()
     {
-        $this->headersMock
-            ->method('getString')
-            ->with('authorization')
-            ->willReturn('Bearer jwt')
+        $this->configMock
+            ->method('getToken')
+            ->willReturn($this->getToken([]))
+        ;
+        $this->configMock
+            ->expects($this->exactly(4))
+            ->method('isVerifiedAndValidated')
+            ->willReturn(false)
         ;
 
-        $middleware = new AuthListMiddleware($this->parserMock, $this->signerMock, $this->validationDataMock, [
-            'public_key_1', 'public_key_2',
-        ]);
-        $this->parserMock
-            ->method('parse')
-            ->with('jwt')
-            ->willReturn($this->tokenMock)
-        ;
-        $this->tokenMock
-            ->expects($this->exactly(2))
-            ->method('verify')
-            ->will($this->returnCallback(function ($signer, $publicKey) {
-                unset($signer);
-                switch ($publicKey) {
-                    case 'public_key_1': return false;
-                    case 'public_key_2': return true;
-                    default: return false;
-                }
-            }))
-        ;
-        $this->tokenMock
-            ->expects($this->exactly(1))
-            ->method('validate')
-            ->with($this->validationDataMock)
-            ->willReturn(true)
-        ;
+        $middleware = new AuthListMiddleware($this->configMock, ['key4', 'key3', 'key1', 'key2']);
+        $this->expectException(UnauthorizedException::class);
+        $this->expectExceptionMessage('Public key which could positively verify authorization token not found.');
+        $middleware->getClaimsOrNoAccess($this->requestMock);
+    }
+
+    /**
+     * Test valid token
+     */
+    public function testValidToken()
+    {
         $claims = [
-            'a' => 1,
-            'b' => 2,
-            'c' => 3,
+            'claim1' => 'a',
+            'claim2' => 2,
         ];
-        $this->tokenMock
-            ->method('getClaims')
-            ->willReturn(array_map(function ($key, $value) {
-                return new TestClaim614($key, $value);
-            }, array_keys($claims), array_values($claims)))
+        $token = $this->getToken($claims);
+        $this->configMock
+            ->method('getToken')
+            ->willReturn($token)
         ;
+        $this->configMock
+            ->method('isVerifiedAndValidated')
+            ->withConsecutive([$token, 'key4'], [$token, 'key3'], [$token, 'key1'])
+            ->willReturnOnConsecutiveCalls(false, false, true)
+        ;
+
+        $middleware = new AuthListMiddleware($this->configMock, ['key4', 'key3', 'key1', 'key2']);
         $this->assertEquals($claims, $middleware->getClaimsOrNoAccess($this->requestMock));
     }
-}
 
-class TestClaim614 implements Claim
-{
-    private $name;
-    private $value;
-
-    public function __construct($name, $value)
+    /**
+     * Get token
+     *
+     * @param array $claims claims
+     *
+     * @return Token\Plain
+     */
+    private function getToken(array $claims)
     {
-        $this->name = $name;
-        $this->value = $value;
-    }
-
-    public function getName()
-    {
-        return $this->name;
-    }
-
-    public function getValue()
-    {
-        return $this->value;
-    }
-
-    public function __toString()
-    {
-        return (string) $this->value;
-    }
-
-    public function jsonSerialize()
-    {
-        return null;
+        return new Token\Plain(
+            new Token\DataSet([], ''),
+            new Token\DataSet($claims, ''),
+            Token\Signature::fromEmptyData(),
+        );
     }
 }
