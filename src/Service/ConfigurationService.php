@@ -2,6 +2,7 @@
 
 namespace SimpleAuth\Service;
 
+use InvalidArgumentException;
 use Lcobucci\Clock\Clock;
 use Lcobucci\Clock\SystemClock;
 use Lcobucci\JWT\Configuration;
@@ -12,13 +13,13 @@ use Lcobucci\JWT\Signer\Rsa;
 use Lcobucci\JWT\Token;
 use Lcobucci\JWT\Validation\Constraint;
 use Lcobucci\JWT\Validation\RequiredConstraintsViolated;
+use RuntimeException;
 use SimpleStructure\Exception\UnauthorizedException;
-use SimpleStructure\Http\Request;
 
 class ConfigurationService
 {
     /** @var Configuration */
-    private $config;
+    private Configuration $config;
 
     /**
      * Construct
@@ -31,7 +32,8 @@ class ConfigurationService
      * @param Clock|null  $clock      clock
      */
     public function __construct(
-        $privateKey = null, $algorithm = null, $hash = null, $audience = null, $issuer = null, Clock $clock = null
+        ?string $privateKey = null, ?string $algorithm = null, ?string $hash = null, ?string $audience = null,
+        ?string $issuer = null, ?Clock $clock = null
     ) {
         $this->config = Configuration::forAsymmetricSigner(
             $this->getSigner($algorithm, $hash),
@@ -55,7 +57,7 @@ class ConfigurationService
      *
      * @return Configuration
      */
-    public function getConfiguration()
+    public function getConfiguration(): Configuration
     {
         return $this->config;
     }
@@ -63,27 +65,25 @@ class ConfigurationService
     /**
      * Get token
      *
-     * @param Request $request request
+     * @param string|null $tokenString token string
      *
      * @return Token
      *
      * @throws UnauthorizedException
      */
-    public function getToken(Request $request)
+    public function getToken(?string $tokenString): Token
     {
-        $header = $request->headers->getString('authorization');
-        if (empty($header)) {
+        if (empty($tokenString)) {
             throw new UnauthorizedException('No authorization token.');
         }
-        $headerParts = explode(' ', $header);
-        if (count($headerParts) !== 2 || $headerParts[0] !== 'Bearer' || empty($headerParts[1])) {
+        try {
+            return $this->config
+                ->parser()
+                ->parse($tokenString)
+                ;
+        } catch (RuntimeException | InvalidArgumentException $exception) {
             throw new UnauthorizedException('Authorization token incorrect.');
         }
-
-        return $this->config
-            ->parser()
-            ->parse($headerParts[1])
-        ;
     }
 
     /**
@@ -94,7 +94,7 @@ class ConfigurationService
      *
      * @throws UnauthorizedException
      */
-    public function verifyAndValidate(Token $token, $publicKey)
+    public function verifyAndValidate(Token $token, string $publicKey)
     {
         $validator = $this->config->validator();
         try {
@@ -116,7 +116,7 @@ class ConfigurationService
      *
      * @return bool
      */
-    public function isVerifiedAndValidated(Token $token, $publicKey)
+    public function isVerifiedAndValidated(Token $token, string $publicKey): bool
     {
         try {
             $this->verifyAndValidate($token, $publicKey);
@@ -135,7 +135,7 @@ class ConfigurationService
      *
      * @return Signer
      */
-    private function getSigner($algorithm = null, $hash = null)
+    private function getSigner(?string $algorithm = null, ?string $hash = null): Signer
     {
         switch ($algorithm) {
             case 'hmac':

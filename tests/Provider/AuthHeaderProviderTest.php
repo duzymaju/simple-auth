@@ -55,7 +55,7 @@ rQIDAQAB
     const ISSUER = 'issuer1';
 
     /** @var Configuration */
-    private $config;
+    private Configuration $config;
 
     /** @before */
     public function generateKeys()

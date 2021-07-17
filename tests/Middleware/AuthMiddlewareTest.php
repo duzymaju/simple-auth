@@ -1,12 +1,9 @@
 <?php
 
-use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Token;
-use Lcobucci\JWT\Token\RegisteredClaims;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleAuth\Middleware\AuthMiddleware;
-use SimpleAuth\Model\UserAccess;
 use SimpleAuth\Service\ConfigurationService;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
@@ -14,9 +11,6 @@ use SimpleStructure\Tool\ParamPack;
 
 final class AuthMiddlewareTest extends TestCase
 {
-    /** @var string */
-    private $publicKey = 'public_key';
-
     /** @var Request|MockObject */
     private $requestMock;
 
@@ -26,18 +20,13 @@ final class AuthMiddlewareTest extends TestCase
     /** @var ConfigurationService|MockObject */
     private $configMock;
 
-    /** @var Token|MockObject */
-    private $tokenMock;
-
     /** @before */
     public function setupMocks()
     {
         $this->requestMock = $this->createMock(Request::class);
         $this->headersMock = $this->createMock(ParamPack::class);
         $this->requestMock->headers = $this->headersMock;
-
         $this->configMock = $this->createMock(ConfigurationService::class);
-        $this->tokenMock = $this->createMock(Token::class);
     }
 
     /**
@@ -163,7 +152,7 @@ final class AuthMiddlewareTest extends TestCase
      *
      * @return Token\Plain
      */
-    private function getToken(array $claims)
+    private function getToken(array $claims): Token\Plain
     {
         return new Token\Plain(
             new Token\DataSet([], ''),

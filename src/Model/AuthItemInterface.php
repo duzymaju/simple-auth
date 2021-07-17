@@ -9,12 +9,12 @@ interface AuthItemInterface
      *
      * @return string
      */
-    public function getName();
+    public function getName(): string;
 
     /**
      * Get key
      *
      * @return string
      */
-    public function getKey();
+    public function getKey(): string;
 }

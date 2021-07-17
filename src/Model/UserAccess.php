@@ -33,7 +33,7 @@ class UserAccess
     private $audience = false;
 
     /** @var DataSet */
-    private $jwtClaims;
+    private DataSet $jwtClaims;
 
     /**
      * Construct
@@ -50,7 +50,7 @@ class UserAccess
      *
      * @return string|null
      */
-    public function getUuid()
+    public function getUuid(): ?string
     {
         if ($this->uuid === false) {
             $value = $this->getJwtClaim('uuid');
@@ -65,7 +65,7 @@ class UserAccess
      *
      * @return string|null
      */
-    public function getEmail()
+    public function getEmail(): ?string
     {
         if ($this->email === false) {
             $value = $this->getJwtClaim('email');
@@ -80,7 +80,7 @@ class UserAccess
      *
      * @return string|null
      */
-    public function getEmailHash()
+    public function getEmailHash(): ?string
     {
         $email = $this->getEmail();
 
@@ -92,7 +92,7 @@ class UserAccess
      *
      * @return string[]
      */
-    public function getCapabilities()
+    public function getCapabilities(): array
     {
         if ($this->capabilities === false) {
             $value = $this->getJwtClaim('capabilities');
@@ -109,7 +109,7 @@ class UserAccess
      *
      * @return bool
      */
-    public function hasCapabilities(...$requiredCapabilities)
+    public function hasCapabilities(...$requiredCapabilities): bool
     {
         $difference = array_diff($requiredCapabilities, $this->getCapabilities());
 
@@ -125,7 +125,7 @@ class UserAccess
      *
      * @throws UnauthorizedException
      */
-    public function checkCapabilitiesOrNoAccess(...$requiredCapabilities)
+    public function checkCapabilitiesOrNoAccess(...$requiredCapabilities): self
     {
         if (!$this->hasCapabilities(...$requiredCapabilities)) {
             throw new UnauthorizedException('User doesn\'t have required capabilities.');
@@ -141,7 +141,7 @@ class UserAccess
      *
      * @throws Exception
      */
-    public function getIssuedAt()
+    public function getIssuedAt(): ?DateTimeImmutable
     {
         if ($this->issuedAt === false) {
             $value = $this->getJwtClaim(RegisteredClaims::ISSUED_AT);
@@ -159,7 +159,7 @@ class UserAccess
      *
      * @throws Exception
      */
-    public function getExpiresAt()
+    public function getExpiresAt(): ?DateTimeImmutable
     {
         if ($this->expiresAt === false) {
             $value = $this->getJwtClaim(RegisteredClaims::EXPIRATION_TIME);
@@ -175,7 +175,7 @@ class UserAccess
      *
      * @return string|null
      */
-    public function getIssuer()
+    public function getIssuer(): ?string
     {
         if ($this->issuer === false) {
             $this->issuer = $this->getJwtClaim(RegisteredClaims::ISSUER);
@@ -189,7 +189,7 @@ class UserAccess
      *
      * @return string|null
      */
-    public function getAudience()
+    public function getAudience(): ?string
     {
         if ($this->audience === false) {
             $this->audience = $this->getJwtClaim(RegisteredClaims::AUDIENCE);
@@ -201,9 +201,9 @@ class UserAccess
     /**
      * Get JWT claims
      *
-     * @return mixed[]
+     * @return array
      */
-    public function getJwtClaims()
+    public function getJwtClaims(): array
     {
         return $this->jwtClaims->all();
     }
@@ -216,7 +216,7 @@ class UserAccess
      *
      * @return mixed
      */
-    public function getJwtClaim($name, $defaultValue = null)
+    public function getJwtClaim(string $name, $defaultValue = null)
     {
         return $this->jwtClaims->has($name) ? $this->jwtClaims->get($name) : $defaultValue;
     }

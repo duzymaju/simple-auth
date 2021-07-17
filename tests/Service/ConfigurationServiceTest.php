@@ -8,8 +8,6 @@ use Lcobucci\JWT\Validation\Constraint;
 use PHPUnit\Framework\TestCase;
 use SimpleAuth\Service\ConfigurationService;
 use SimpleStructure\Exception\UnauthorizedException;
-use SimpleStructure\Http\Request;
-use SimpleStructure\Tool\ParamPack;
 
 final class ConfigurationServiceTest extends TestCase
 {
@@ -75,8 +73,9 @@ rQIDAQAB
      *           ["Lcobucci\\JWT\\Signer\\Hmac\\Sha256", "hmac", "sha256", null, null]
      *           ["Lcobucci\\JWT\\Signer\\Hmac\\Sha256", "hmac", null, null, null]
      */
-    public function testConfigurationGetting($signerClass, $algorithm, $hash, $audience, $issuer)
-    {
+    public function testConfigurationGetting(
+        string $signerClass, ?string $algorithm, ?string $hash, ?string $audience, ?string $issuer
+    ) {
         $service = new ConfigurationService(self::PRIVATE_KEY, $algorithm, $hash, $audience, $issuer);
         $config = $service->getConfiguration();
 
@@ -94,55 +93,34 @@ rQIDAQAB
     }
 
     /**
-     * Test token getting with incorrect authorization header
+     * Test incorrect token getting
      *
-     * @param mixed  $headerValue header value
+     * @param mixed  $tokenString token string
      * @param string $message     message
      *
      * @testWith ["", "No authorization token."]
      *           [null, "No authorization token."]
-     *           [123, "Authorization token incorrect."]
      *           ["abc", "Authorization token incorrect."]
-     *           ["Bearer", "Authorization token incorrect."]
-     *           ["Bearer abc def", "Authorization token incorrect."]
-     *           ["Bearer  abc", "Authorization token incorrect."]
+     *           ["abc def", "Authorization token incorrect."]
+     *           [" abc", "Authorization token incorrect."]
+     *           ["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGFpbTEiOiJhIiwiY2xhaW0yIjoyfQ.Ajjfq2j7ItD_p0ZUQ1Dqv4nOjgbBb8vs93OexjPL9kIabc", "Authorization token incorrect."]
      */
-    public function testTokenGettingWithIncorrectAuthorizationHeader($headerValue, $message)
+    public function testIncorrectTokenGetting(?string $tokenString, string $message)
     {
-        $requestMock = $this->createMock(Request::class);
-        $headersMock = $this->createMock(ParamPack::class);
-        $requestMock->headers = $headersMock;
-        $headersMock
-            ->method('getString')
-            ->with('authorization')
-            ->willReturn($headerValue)
-        ;
-
         $service = new ConfigurationService();
         $this->expectException(UnauthorizedException::class);
         $this->expectExceptionMessage($message);
-        $service->getToken($requestMock);
+        $service->getToken($tokenString);
     }
 
     /**
-     * Test token getting
+     * Test correct token getting
      */
-    public function testTokenGetting()
+    public function testCorrectTokenGetting()
     {
-        $requestMock = $this->createMock(Request::class);
-        $headersMock = $this->createMock(ParamPack::class);
-        $requestMock->headers = $headersMock;
-        $headersMock
-            ->method('getString')
-            ->with('authorization')
-            ->willReturn(
-                'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGFpbTEiOiJhIiwiY2xhaW0yIjoyfQ.' .
-                'Ajjfq2j7ItD_p0ZUQ1Dqv4nOjgbBb8vs93OexjPL9kI',
-            )
-        ;
-
         $service = new ConfigurationService();
-        $token = $service->getToken($requestMock);
+        $token = $service->getToken('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGFpbTEiOiJhIiwiY2xhaW0yIjoyfQ.' .
+            'Ajjfq2j7ItD_p0ZUQ1Dqv4nOjgbBb8vs93OexjPL9kI');
         $claims = $token->claims();
         $this->assertEquals(['claim1' => 'a', 'claim2' => 2], $claims->all());
     }
@@ -162,7 +140,7 @@ rQIDAQAB
      *           ["audience1", "issuer1", {"aud": ["audience1"], "iss": "issuer1", "exp": 1612582559}]
      *           ["audience1", "issuer1", {"aud": ["audience1"], "iat": 1612582561, "iss": "issuer1", "exp": 1612586161}]
      */
-    public function testValidatingInvalidTokens($audience, $issuer, array $claims)
+    public function testValidatingInvalidTokens(?string $audience, ?string $issuer, array $claims)
     {
         $clock = new Lcobucci\Clock\FrozenClock(new DateTimeImmutable('2021-02-06T03:36:00'));
         $service = new ConfigurationService(null, 'rsa', 'sha256', $audience, $issuer, $clock);
@@ -185,7 +163,7 @@ rQIDAQAB
      *           [null, "issuer1", {"iss": "issuer1"}]
      *           ["audience1", "issuer1", {"aud": ["audience1"], "iss": "issuer1"}]
      */
-    public function testValidatingValidToken($audience, $issuer, array $claims)
+    public function testValidatingValidToken(?string $audience, ?string $issuer, array $claims)
     {
         $clock = new Lcobucci\Clock\FrozenClock(new DateTimeImmutable('2021-02-06T03:36:00'));
         $service = new ConfigurationService(null, 'rsa', 'sha256', $audience, $issuer, $clock);
@@ -216,7 +194,7 @@ rQIDAQAB
      *           ["audience1", "issuer1", {"aud": ["audience1"], "iss": "issuer1", "exp": 1612582559}]
      *           ["audience1", "issuer1", {"aud": ["audience1"], "iat": 1612582561, "iss": "issuer1", "exp": 1612586161}]
      */
-    public function testCheckingInvalidTokens($audience, $issuer, array $claims)
+    public function testCheckingInvalidTokens(?string $audience, ?string $issuer, array $claims)
     {
         $clock = new Lcobucci\Clock\FrozenClock(new DateTimeImmutable('2021-02-06T03:36:00'));
         $service = new ConfigurationService(null, 'rsa', 'sha256', $audience, $issuer, $clock);
@@ -238,7 +216,7 @@ rQIDAQAB
      *           [null, "issuer1", {"iss": "issuer1"}]
      *           ["audience1", "issuer1", {"aud": ["audience1"], "iss": "issuer1"}]
      */
-    public function testCheckingValidToken($audience, $issuer, array $claims)
+    public function testCheckingValidToken(?string $audience, ?string $issuer, array $claims)
     {
         $clock = new Lcobucci\Clock\FrozenClock(new DateTimeImmutable('2021-02-06T03:36:00'));
         $service = new ConfigurationService(null, 'rsa', 'sha256', $audience, $issuer, $clock);
@@ -257,7 +235,7 @@ rQIDAQAB
      *
      * @throws Exception
      */
-    private function getToken(Configuration $config, array $headers, array $claims)
+    private function getToken(Configuration $config, array $headers, array $claims): Token\Plain
     {
         $builder = $config->builder();
         foreach ($headers as $name => $value) {
@@ -291,7 +269,7 @@ rQIDAQAB
      * @param string        $className class name
      * @param Configuration $config    config
      */
-    private function assertDoesntHaveConstraint($className, Configuration $config)
+    private function assertDoesntHaveConstraint(string $className, Configuration $config)
     {
         $constraint = $this->findConstraint($className, $config);
         if (isset($constraint)) {
@@ -305,7 +283,7 @@ rQIDAQAB
      * @param string        $className class name
      * @param Configuration $config    config
      */
-    private function assertHasConstraint($className, Configuration $config)
+    private function assertHasConstraint(string $className, Configuration $config)
     {
         $constraint = $this->findConstraint($className, $config);
         if (!isset($constraint)) {
@@ -321,7 +299,7 @@ rQIDAQAB
      *
      * @return Constraint|null
      */
-    private function findConstraint($className, Configuration $config)
+    private function findConstraint(string $className, Configuration $config): ?Constraint
     {
         foreach ($config->validationConstraints() as $constraint) {
             if ($constraint instanceof $className) {

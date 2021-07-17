@@ -10,19 +10,19 @@ use Lcobucci\JWT\Configuration;
 class AuthHeaderProvider
 {
     /** @var Clock */
-    private $clock;
+    private Clock $clock;
 
     /** @var Configuration */
-    private $config;
+    private Configuration $config;
 
     /** @var string */
-    private $issuer;
+    private string $issuer;
 
     /** @var int */
-    private $expirationPeriod;
+    private int $expirationPeriod;
 
     /** @var string|null */
-    private $audience;
+    private ?string $audience = null;
 
     /**
      * Construct
@@ -31,7 +31,7 @@ class AuthHeaderProvider
      * @param string        $issuer           issuer
      * @param int           $expirationPeriod expiration period
      */
-    public function __construct(Configuration $config, $issuer, $expirationPeriod = 60)
+    public function __construct(Configuration $config, string $issuer, int $expirationPeriod = 60)
     {
         $this->clock = SystemClock::fromSystemTimezone();
         $this->config = $config;
@@ -46,7 +46,7 @@ class AuthHeaderProvider
      *
      * @return self
      */
-    public function setClock(Clock $clock)
+    public function setClock(Clock $clock): self
     {
         $this->clock = $clock;
 
@@ -60,7 +60,7 @@ class AuthHeaderProvider
      *
      * @return self
      */
-    public function setAudience($audience)
+    public function setAudience(string $audience): self
     {
         $this->audience = $audience;
 
@@ -72,7 +72,7 @@ class AuthHeaderProvider
      *
      * @return string
      */
-    public function getToken()
+    public function getToken(): string
     {
         $now = $this->clock->now();
         $builder = $this->config->builder();
@@ -96,7 +96,7 @@ class AuthHeaderProvider
      *
      * @return string
      */
-    public function getHeader()
+    public function getHeader(): string
     {
         return 'Authorization: Bearer ' . $this->getToken();
     }

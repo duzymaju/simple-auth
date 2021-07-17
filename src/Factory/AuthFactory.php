@@ -2,10 +2,6 @@
 
 namespace SimpleAuth\Factory;
 
-use Lcobucci\Clock\SystemClock;
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer\Key;
-use Lcobucci\JWT\Validation\Constraint;
 use SimpleAuth\Middleware\AuthItemsMiddleware;
 use SimpleAuth\Middleware\AuthListMiddleware;
 use SimpleAuth\Middleware\AuthMiddleware;
@@ -16,10 +12,10 @@ use SimpleAuth\Service\ConfigurationService;
 class AuthFactory
 {
     /** @var string|null */
-    private $algorithm;
+    private ?string $algorithm;
 
     /** @var string|null */
-    private $hash;
+    private ?string $hash;
 
     /**
      * Construct
@@ -27,7 +23,7 @@ class AuthFactory
      * @param string|null $algorithm   algorithm
      * @param string|null $hash        hash
      */
-    public function __construct($algorithm = null, $hash = null)
+    public function __construct(?string $algorithm = null, ?string $hash = null)
     {
         $this->algorithm = $algorithm;
         $this->hash = $hash;
@@ -42,8 +38,9 @@ class AuthFactory
      *
      * @return AuthHeaderProvider
      */
-    public function getHeaderProvider($issuer, $privateKey, $expirationPeriod = 60)
-    {
+    public function getHeaderProvider(
+        string $issuer, string $privateKey, int $expirationPeriod = 60
+    ): AuthHeaderProvider {
         $config = new ConfigurationService($privateKey, $this->algorithm, $this->hash);
 
         return new AuthHeaderProvider($config->getConfiguration(), $issuer, $expirationPeriod);
@@ -58,8 +55,9 @@ class AuthFactory
      *
      * @return AuthMiddleware
      */
-    public function getAuthMiddleware($publicKey, $audience = null, $issuer = null)
-    {
+    public function getAuthMiddleware(
+        string $publicKey, ?string $audience = null, ?string $issuer = null
+    ): AuthMiddleware {
         return new AuthMiddleware(
             new ConfigurationService(null, $this->algorithm, $this->hash, $audience, $issuer),
             $publicKey,
@@ -75,8 +73,9 @@ class AuthFactory
      *
      * @return AuthListMiddleware
      */
-    public function getAuthListMiddleware(array $publicKeys, $audience = null, $issuer = null)
-    {
+    public function getAuthListMiddleware(
+        array $publicKeys, ?string $audience = null, ?string $issuer = null
+    ): AuthListMiddleware {
         return new AuthListMiddleware(
             new ConfigurationService(null, $this->algorithm, $this->hash, $audience, $issuer),
             $publicKeys,
@@ -91,7 +90,7 @@ class AuthFactory
      *
      * @return AuthItemsMiddleware
      */
-    public function getAuthItemsMiddleware(array $items, $audience = null)
+    public function getAuthItemsMiddleware(array $items, ?string $audience = null): AuthItemsMiddleware
     {
         return new AuthItemsMiddleware(
             new ConfigurationService(null, $this->algorithm, $this->hash, $audience),

@@ -7,6 +7,7 @@ use SimpleAuth\Middleware\AuthListMiddleware;
 use SimpleAuth\Service\ConfigurationService;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
+use SimpleStructure\Tool\ParamPack;
 
 final class AuthListMiddlewareTest extends TestCase
 {
@@ -16,15 +17,13 @@ final class AuthListMiddlewareTest extends TestCase
     /** @var ConfigurationService|MockObject */
     private $configMock;
 
-    /** @var Token|MockObject */
-    private $tokenMock;
-
     /** @before */
     public function setupMocks()
     {
         $this->requestMock = $this->createMock(Request::class);
+        $headersMock = $this->createMock(ParamPack::class);
+        $this->requestMock->headers = $headersMock;
         $this->configMock = $this->createMock(ConfigurationService::class);
-        $this->tokenMock = $this->createMock(Token::class);
     }
 
     /**
@@ -95,7 +94,7 @@ final class AuthListMiddlewareTest extends TestCase
      *
      * @return Token\Plain
      */
-    private function getToken(array $claims)
+    private function getToken(array $claims): Token\Plain
     {
         return new Token\Plain(
             new Token\DataSet([], ''),

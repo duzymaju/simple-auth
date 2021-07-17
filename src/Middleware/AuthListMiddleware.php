@@ -8,11 +8,13 @@ use SimpleStructure\Http\Request;
 
 class AuthListMiddleware
 {
+    use MiddlewareTrait;
+
     /** @var ConfigurationService */
-    private $config;
+    private ConfigurationService $config;
 
     /** @var string[] */
-    private $publicKeys;
+    private array $publicKeys;
 
     /**
      * Construct
@@ -35,9 +37,9 @@ class AuthListMiddleware
      *
      * @throws UnauthorizedException
      */
-    public function getClaimsOrNoAccess(Request $request)
+    public function getClaimsOrNoAccess(Request $request): array
     {
-        $token = $this->config->getToken($request);
+        $token = $this->config->getToken($this->getTokenString($request));
         foreach ($this->publicKeys as $publicKey) {
             if ($this->config->isVerifiedAndValidated($token, $publicKey)) {
                 return $token

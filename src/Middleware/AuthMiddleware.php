@@ -10,11 +10,13 @@ use SimpleStructure\Http\Request;
 
 class AuthMiddleware
 {
+    use MiddlewareTrait;
+
     /** @var ConfigurationService */
-    private $config;
+    private ConfigurationService $config;
 
     /** @var string */
-    private $publicKey;
+    private string $publicKey;
 
     /**
      * Construct
@@ -22,7 +24,7 @@ class AuthMiddleware
      * @param ConfigurationService $config    config
      * @param string               $publicKey public key
      */
-    public function __construct(ConfigurationService $config, $publicKey)
+    public function __construct(ConfigurationService $config, string $publicKey)
     {
         $this->config = $config;
         $this->publicKey = $publicKey;
@@ -37,7 +39,7 @@ class AuthMiddleware
      *
      * @throws UnauthorizedException
      */
-    public function getUserAccessIfExists(Request $request)
+    public function getUserAccessIfExists(Request $request): ?UserAccess
     {
         if (empty($request->headers->getString('authorization'))) {
             return null;
@@ -56,9 +58,9 @@ class AuthMiddleware
      * @throws Exception
      * @throws UnauthorizedException
      */
-    public function getUserOrNoAccess(Request $request)
+    public function getUserOrNoAccess(Request $request): UserAccess
     {
-        $token = $this->config->getToken($request);
+        $token = $this->config->getToken($this->getTokenString($request));
         $this->config->verifyAndValidate($token, $this->publicKey);
 
         return new UserAccess($token->claims());

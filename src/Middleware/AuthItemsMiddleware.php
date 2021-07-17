@@ -10,11 +10,13 @@ use SimpleStructure\Http\Request;
 
 class AuthItemsMiddleware
 {
+    use MiddlewareTrait;
+
     /** @var ConfigurationService */
-    private $config;
+    private ConfigurationService $config;
 
     /** @var AuthItemInterface[] */
-    private $items;
+    private array $items;
 
     /**
      * Construct
@@ -37,9 +39,9 @@ class AuthItemsMiddleware
      *
      * @throws UnauthorizedException
      */
-    public function getAuthItem(Request $request)
+    public function getAuthItem(Request $request): AuthItemInterface
     {
-        $token = $this->config->getToken($request);
+        $token = $this->config->getToken($this->getTokenString($request));
         $claims = $token->claims();
         if (!$claims->has(RegisteredClaims::ISSUER)) {
             throw new UnauthorizedException('Authorization token has no issuer defined.');

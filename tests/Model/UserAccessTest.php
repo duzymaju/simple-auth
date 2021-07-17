@@ -17,7 +17,7 @@ final class UserAccessTest extends TestCase
      *           [{"uuid": 123}, null]
      *           [{}, null]
      */
-    public function testUuid(array $claims, $result)
+    public function testUuid(array $claims, ?string $result)
     {
         $userAccess = new UserAccess(new DataSet($claims, ''));
         $this->assertEquals($result, $userAccess->getUuid());
@@ -33,7 +33,7 @@ final class UserAccessTest extends TestCase
      *           [{"email": 123}, null]
      *           [{}, null]
      */
-    public function testEmail(array $claims, $result)
+    public function testEmail(array $claims, ?string $result)
     {
         $userAccess = new UserAccess(new DataSet($claims, ''));
         $this->assertEquals($result, $userAccess->getEmail());
@@ -49,7 +49,7 @@ final class UserAccessTest extends TestCase
      *           [{"email": 123}, null]
      *           [{}, null]
      */
-    public function testEmailHash(array $claims, $result)
+    public function testEmailHash(array $claims, ?string $result)
     {
         $userAccess = new UserAccess(new DataSet($claims, ''));
         $this->assertEquals($result, $userAccess->getEmailHash());
@@ -72,7 +72,7 @@ final class UserAccessTest extends TestCase
      *           [["a", "b", "c"], ["b", "d"], false]
      *           [["a", "b"], ["c", "d"], false]
      */
-    public function testHavingCapabilities($capabilities, $requiredCapabilities, $result)
+    public function testHavingCapabilities(array $capabilities, array $requiredCapabilities, bool $result)
     {
         $userAccess = new UserAccess(new DataSet([
             'capabilities' => $capabilities,
@@ -97,7 +97,7 @@ final class UserAccessTest extends TestCase
      *           [["a", "b", "c"], ["b", "d"], false]
      *           [["a", "b"], ["c", "d"], false]
      */
-    public function testCheckingCapabilities($capabilities, $requiredCapabilities, $result)
+    public function testCheckingCapabilities(array $capabilities, array $requiredCapabilities, bool $result)
     {
         $userAccess = new UserAccess(new DataSet([
             'capabilities' => $capabilities,
@@ -122,7 +122,7 @@ final class UserAccessTest extends TestCase
      *           [{"iat": "abc"}, null]
      *           [{}, null]
      */
-    public function testIssuedAt(array $claims, $result)
+    public function testIssuedAt(array $claims, ?int $result)
     {
         $userAccess = new UserAccess(new DataSet($claims, ''));
         $date = $userAccess->getIssuedAt();
@@ -141,7 +141,7 @@ final class UserAccessTest extends TestCase
      *           [{"exp": "abc"}, null]
      *           [{}, null]
      */
-    public function testExpiresAt(array $claims, $result)
+    public function testExpiresAt(array $claims, ?int $result)
     {
         $userAccess = new UserAccess(new DataSet($claims, ''));
         $date = $userAccess->getExpiresAt();
@@ -155,10 +155,9 @@ final class UserAccessTest extends TestCase
      * @param string|null $result result
      *
      * @testWith [{"iss": "abc"}, "abc"]
-     *           [{"iss": 123}, 123]
      *           [{}, null]
      */
-    public function testIssuer(array $claims, $result)
+    public function testIssuer(array $claims, ?string $result)
     {
         $userAccess = new UserAccess(new DataSet($claims, ''));
         $this->assertEquals($result, $userAccess->getIssuer());
@@ -171,10 +170,9 @@ final class UserAccessTest extends TestCase
      * @param string|null $result result
      *
      * @testWith [{"aud": "abc"}, "abc"]
-     *           [{"aud": 123}, 123]
      *           [{}, null]
      */
-    public function testAudience(array $claims, $result)
+    public function testAudience(array $claims, ?string $result)
     {
         $userAccess = new UserAccess(new DataSet($claims, ''));
         $this->assertEquals($result, $userAccess->getAudience());
@@ -207,7 +205,7 @@ final class UserAccessTest extends TestCase
      *           [{"claim1": "a", "claim2": 2}, "claim3", "c", "c"]
      *           [{"claim1": "a", "claim2": 2}, "claim3", null, null]
      */
-    public function testJwtClaim(array $claims, $name, $defaultValue, $result)
+    public function testJwtClaim(array $claims, string $name, $defaultValue, $result)
     {
         $userAccess = new UserAccess(new DataSet($claims, ''));
         $this->assertEquals($result, $userAccess->getJwtClaim($name, $defaultValue));

@@ -9,6 +9,7 @@ use SimpleAuth\Model\AuthItemInterface;
 use SimpleAuth\Service\ConfigurationService;
 use SimpleStructure\Exception\UnauthorizedException;
 use SimpleStructure\Http\Request;
+use SimpleStructure\Tool\ParamPack;
 
 final class AuthItemsMiddlewareTest extends TestCase
 {
@@ -18,15 +19,13 @@ final class AuthItemsMiddlewareTest extends TestCase
     /** @var ConfigurationService|MockObject */
     private $configMock;
 
-    /** @var Token|MockObject */
-    private $tokenMock;
-
     /** @before */
     public function setupMocks()
     {
         $this->requestMock = $this->createMock(Request::class);
+        $headersMock = $this->createMock(ParamPack::class);
+        $this->requestMock->headers = $headersMock;
         $this->configMock = $this->createMock(ConfigurationService::class);
-        $this->tokenMock = $this->createMock(Token::class);
     }
 
     /**
@@ -135,10 +134,10 @@ final class AuthItemsMiddlewareTest extends TestCase
 class AuthItem implements AuthItemInterface
 {
     /** @var string */
-    private $name;
+    private string $name;
 
     /** @var string */
-    private $key;
+    private string $key;
 
     /**
      * Construct
@@ -146,7 +145,7 @@ class AuthItem implements AuthItemInterface
      * @param string $name name
      * @param string $key  key
      */
-    public function __construct($name, $key)
+    public function __construct(string $name, string $key)
     {
         $this->name = $name;
         $this->key = $key;
@@ -157,7 +156,7 @@ class AuthItem implements AuthItemInterface
      *
      * @return string
      */
-    public function getName()
+    public function getName(): string
     {
         return $this->name;
     }
@@ -167,7 +166,7 @@ class AuthItem implements AuthItemInterface
      *
      * @return string
      */
-    public function getKey()
+    public function getKey(): string
     {
         return $this->key;
     }
