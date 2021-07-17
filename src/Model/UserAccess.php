@@ -11,6 +11,15 @@ use SimpleStructure\Exception\UnauthorizedException;
 
 class UserAccess
 {
+    /** @var string */
+    const CLAIM_CAPABILITIES = 'capabilities';
+
+    /** @var string */
+    const CLAIM_EMAIL = 'email';
+
+    /** @var string */
+    const CLAIM_UUID = 'uuid';
+
     /** @var string|false|null */
     private $uuid = false;
 
@@ -53,7 +62,7 @@ class UserAccess
     public function getUuid(): ?string
     {
         if ($this->uuid === false) {
-            $value = $this->getJwtClaim('uuid');
+            $value = $this->getJwtClaim(self::CLAIM_UUID);
             $this->uuid = is_string($value) ? $value : null;
         }
 
@@ -68,7 +77,7 @@ class UserAccess
     public function getEmail(): ?string
     {
         if ($this->email === false) {
-            $value = $this->getJwtClaim('email');
+            $value = $this->getJwtClaim(self::CLAIM_EMAIL);
             $this->email = is_string($value) ? $value : null;
         }
 
@@ -95,7 +104,7 @@ class UserAccess
     public function getCapabilities(): array
     {
         if ($this->capabilities === false) {
-            $value = $this->getJwtClaim('capabilities');
+            $value = $this->getJwtClaim(self::CLAIM_CAPABILITIES);
             $this->capabilities = is_array($value) ? $value : [];
         }
 

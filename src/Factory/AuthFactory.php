@@ -6,7 +6,7 @@ use SimpleAuth\Middleware\AuthItemsMiddleware;
 use SimpleAuth\Middleware\AuthListMiddleware;
 use SimpleAuth\Middleware\AuthMiddleware;
 use SimpleAuth\Model\AuthItemInterface;
-use SimpleAuth\Provider\AuthHeaderProvider;
+use SimpleAuth\Provider\AuthTokenProvider;
 use SimpleAuth\Service\ConfigurationService;
 
 class AuthFactory
@@ -36,14 +36,14 @@ class AuthFactory
      * @param string  $privateKey       private key
      * @param int     $expirationPeriod expiration period
      *
-     * @return AuthHeaderProvider
+     * @return AuthTokenProvider
      */
-    public function getHeaderProvider(
+    public function getTokenProvider(
         string $issuer, string $privateKey, int $expirationPeriod = 60
-    ): AuthHeaderProvider {
+    ): AuthTokenProvider {
         $config = new ConfigurationService($privateKey, $this->algorithm, $this->hash);
 
-        return new AuthHeaderProvider($config->getConfiguration(), $issuer, $expirationPeriod);
+        return new AuthTokenProvider($config->getConfiguration(), $issuer, $expirationPeriod);
     }
 
     /**

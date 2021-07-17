@@ -5,7 +5,7 @@ use SimpleAuth\Factory\AuthFactory;
 use SimpleAuth\Middleware\AuthItemsMiddleware;
 use SimpleAuth\Middleware\AuthListMiddleware;
 use SimpleAuth\Middleware\AuthMiddleware;
-use SimpleAuth\Provider\AuthHeaderProvider;
+use SimpleAuth\Provider\AuthTokenProvider;
 
 final class AuthFactoryTest extends TestCase
 {
@@ -15,8 +15,8 @@ final class AuthFactoryTest extends TestCase
     public function testGettingHeaderProvider()
     {
         $factory = new AuthFactory();
-        $provider = $factory->getHeaderProvider('issuer1', 'privateKey1', 180);
-        $this->assertInstanceOf(AuthHeaderProvider::class, $provider);
+        $provider = $factory->getTokenProvider('issuer1', 'privateKey1', 180);
+        $this->assertInstanceOf(AuthTokenProvider::class, $provider);
     }
 
     /**

@@ -7,7 +7,7 @@ use Lcobucci\Clock\Clock;
 use Lcobucci\Clock\SystemClock;
 use Lcobucci\JWT\Configuration;
 
-class AuthHeaderProvider
+class AuthTokenProvider
 {
     /** @var Clock */
     private Clock $clock;
@@ -70,9 +70,11 @@ class AuthHeaderProvider
     /**
      * Get token
      *
+     * @param array $claims claims
+     *
      * @return string
      */
-    public function getToken(): string
+    public function getToken(array $claims = []): string
     {
         $now = $this->clock->now();
         $builder = $this->config->builder();
@@ -84,6 +86,9 @@ class AuthHeaderProvider
         if (is_string($this->audience)) {
             $builder->permittedFor($this->audience);
         }
+        foreach ($claims as $name => $value) {
+            $builder->withClaim($name, $value);
+        }
 
         return $builder
             ->getToken($this->config->signer(), $this->config->signingKey())
@@ -94,10 +99,12 @@ class AuthHeaderProvider
     /**
      * Get header
      *
+     * @param array $claims claims
+     *
      * @return string
      */
-    public function getHeader(): string
+    public function getHeader(array $claims = []): string
     {
-        return 'Authorization: Bearer ' . $this->getToken();
+        return 'Authorization: Bearer ' . $this->getToken($claims);
     }
 }

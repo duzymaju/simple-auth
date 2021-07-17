@@ -7,9 +7,9 @@ use Lcobucci\JWT\Signer\Rsa;
 use Lcobucci\JWT\Token\RegisteredClaims;
 use Lcobucci\JWT\Validation\Constraint;
 use PHPUnit\Framework\TestCase;
-use SimpleAuth\Provider\AuthHeaderProvider;
+use SimpleAuth\Provider\AuthTokenProvider;
 
-final class AuthHeaderProviderTest extends TestCase
+final class AuthTokenProviderTest extends TestCase
 {
     /** @var string */
     const PRIVATE_KEY = '-----BEGIN RSA PRIVATE KEY-----
@@ -74,7 +74,7 @@ rQIDAQAB
      */
     public function testJwtGeneration()
     {
-        $provider = new AuthHeaderProvider($this->config, self::ISSUER);
+        $provider = new AuthTokenProvider($this->config, self::ISSUER);
         $jwt = $provider->getToken();
         $this->assertTrue(is_string($jwt));
         $this->assertCount(3, explode('.', $jwt));
@@ -85,7 +85,7 @@ rQIDAQAB
      */
     public function testHeaderGeneration()
     {
-        $provider = new AuthHeaderProvider($this->config, self::ISSUER);
+        $provider = new AuthTokenProvider($this->config, self::ISSUER);
         $this->assertStringStartsWith('Authorization: Bearer ', $provider->getHeader());
     }
 
@@ -94,7 +94,7 @@ rQIDAQAB
      */
     public function testJwtWithoutAudience()
     {
-        $provider = new AuthHeaderProvider($this->config, self::ISSUER);
+        $provider = new AuthTokenProvider($this->config, self::ISSUER);
         $parser = $this->config->parser();
         $token = $parser->parse($provider->getToken());
         $claims = $token->claims();
@@ -114,7 +114,7 @@ rQIDAQAB
         $now = new DateTimeImmutable('2021-02-06T03:36:00');
         $clock = new FrozenClock($now);
 
-        $provider = new AuthHeaderProvider($this->config, self::ISSUER, $expirationPeriod);
+        $provider = new AuthTokenProvider($this->config, self::ISSUER, $expirationPeriod);
         $provider
             ->setClock($clock)
             ->setAudience($audience)
@@ -135,6 +135,22 @@ rQIDAQAB
     }
 
     /**
+     * Test JWT with claims
+     */
+    public function testJwtWithClaims()
+    {
+        $provider = new AuthTokenProvider($this->config, self::ISSUER);
+        $parser = $this->config->parser();
+        $token = $parser->parse($provider->getToken(['claim1' => 'a', 'claim2' => 2]));
+        $claims = $token->claims();
+
+        $validator = $this->config->validator();
+        $this->assertTrue($validator->validate($token, ...$this->config->validationConstraints()));
+        $this->assertEquals('a', $claims->get('claim1'));
+        $this->assertEquals(2, $claims->get('claim2'));
+    }
+
+    /**
      * Test expired JWT
      */
     public function testExpiredJwt()
@@ -143,7 +159,7 @@ rQIDAQAB
         $now = new DateTimeImmutable('2021-02-06T03:36:00');
         $clock = new FrozenClock($now);
 
-        $provider = new AuthHeaderProvider($this->config, self::ISSUER, $expirationPeriod);
+        $provider = new AuthTokenProvider($this->config, self::ISSUER, $expirationPeriod);
         $provider->setClock($clock);
         $parser = $this->config->parser();
         $token = $parser->parse($provider->getToken());
